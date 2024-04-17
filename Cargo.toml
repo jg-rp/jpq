@@ -1,0 +1,16 @@
+[package]
+name = "jpq"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[lib]
+name = "jpq"
+crate-type = ["cdylib"]
+
+[dependencies]
+lazy_static = "1.4.0"
+
+[dependencies.pyo3]
+version = "0.21.1"
+features = ["abi3-py38"]
