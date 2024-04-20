@@ -111,6 +111,7 @@ use pyo3::prelude::*;
 
 impl std::convert::From<JSONPathError> for PyErr {
     fn from(err: JSONPathError) -> Self {
+        // TODO: custom python error class
         PyValueError::new_err(err.to_string()) // TODO: include span
     }
 }
@@ -131,6 +132,7 @@ fn jpq_extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<query::Selector>()?;
     m.add_class::<query::LogicalOperator>()?;
     m.add_class::<query::ComparisonOperator>()?;
-    m.add_class::<query::FilterExpressionType>()?;
+    m.add_class::<query::FilterExpression>()?;
+    m.add_class::<query::Query>()?;
     Ok(())
 }

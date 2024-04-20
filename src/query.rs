@@ -146,6 +146,10 @@ impl fmt::Display for Segment {
 
 #[pymethods]
 impl Segment {
+    #[classattr]
+    #[allow(non_upper_case_globals)]
+    const __match_args__: (&'static str, &'static str) = ("selectors", "span");
+
     fn __repr__(&self) -> String {
         match self {
             Segment::Child { .. } => format!("<jpq.Segment.Child `{}`>", self),
@@ -315,65 +319,113 @@ impl ComparisonOperator {
 
 #[pyclass]
 #[derive(Debug, Clone)]
-pub enum FilterExpressionType {
-    True {},
-    False {},
-    Null {},
+pub enum FilterExpression {
+    True_ {
+        span: (usize, usize),
+    },
+    False_ {
+        span: (usize, usize),
+    },
+    Null {
+        span: (usize, usize),
+    },
     String {
+        span: (usize, usize),
         value: String,
     },
     Int {
+        span: (usize, usize),
         value: i64,
     },
     Float {
+        span: (usize, usize),
         value: f64,
     },
     Not {
+        span: (usize, usize),
         expression: Box<FilterExpression>,
     },
     Logical {
+        span: (usize, usize),
         left: Box<FilterExpression>,
         operator: LogicalOperator,
         right: Box<FilterExpression>,
     },
     Comparison {
+        span: (usize, usize),
         left: Box<FilterExpression>,
         operator: ComparisonOperator,
         right: Box<FilterExpression>,
     },
     RelativeQuery {
+        span: (usize, usize),
         query: Box<Query>,
     },
     RootQuery {
+        span: (usize, usize),
         query: Box<Query>,
     },
     Function {
+        span: (usize, usize),
         name: String,
         args: Vec<FilterExpression>,
     },
 }
 
-impl fmt::Display for FilterExpressionType {
+impl FilterExpression {
+    pub fn is_literal(&self) -> bool {
+        matches!(
+            self,
+            FilterExpression::True_ { .. }
+                | FilterExpression::False_ { .. }
+                | FilterExpression::Null { .. }
+                | FilterExpression::String { .. }
+                | FilterExpression::Int { .. }
+                | FilterExpression::Float { .. }
+        )
+    }
+
+    pub fn span(&self) -> (usize, usize) {
+        match self {
+            FilterExpression::True_ { span, .. }
+            | FilterExpression::False_ { span, .. }
+            | FilterExpression::Null { span, .. }
+            | FilterExpression::String { span, .. }
+            | FilterExpression::Int { span, .. }
+            | FilterExpression::Float { span, .. }
+            | FilterExpression::Not { span, .. }
+            | FilterExpression::Logical { span, .. }
+            | FilterExpression::Comparison { span, .. }
+            | FilterExpression::RelativeQuery { span, .. }
+            | FilterExpression::RootQuery { span, .. }
+            | FilterExpression::Function { span, .. } => *span,
+        }
+    }
+}
+
+impl fmt::Display for FilterExpression {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            FilterExpressionType::True {} => f.write_str("true"),
-            FilterExpressionType::False {} => f.write_str("false"),
-            FilterExpressionType::Null {} => f.write_str("null"),
-            FilterExpressionType::String { value } => write!(f, "\"{value}\""),
-            FilterExpressionType::Int { value } => write!(f, "{value}"),
-            FilterExpressionType::Float { value } => write!(f, "{value}"),
-            FilterExpressionType::Not { expression } => write!(f, "!{expression}"),
-            FilterExpressionType::Logical {
+            FilterExpression::True_ { .. } => f.write_str("true"),
+            FilterExpression::False_ { .. } => f.write_str("false"),
+            FilterExpression::Null { .. } => f.write_str("null"),
+            FilterExpression::String { value, .. } => write!(f, "\"{value}\""),
+            FilterExpression::Int { value, .. } => write!(f, "{value}"),
+            FilterExpression::Float { value, .. } => write!(f, "{value}"),
+            FilterExpression::Not { expression, .. } => write!(f, "!{expression}"),
+            FilterExpression::Logical {
                 left,
                 operator,
                 right,
+                ..
             } => write!(f, "({left} {operator} {right})"),
-            FilterExpressionType::Comparison {
+            FilterExpression::Comparison {
                 left,
                 operator,
                 right,
+                ..
             } => write!(f, "{left} {operator} {right}"),
-            FilterExpressionType::RelativeQuery { query } => {
+            FilterExpression::RelativeQuery { query, .. } => {
                 write!(
                     f,
                     "@{}",
@@ -385,7 +437,7 @@ impl fmt::Display for FilterExpressionType {
                         .join("")
                 )
             }
-            FilterExpressionType::RootQuery { query } => {
+            FilterExpression::RootQuery { query, .. } => {
                 write!(
                     f,
                     "${}",
@@ -397,7 +449,7 @@ impl fmt::Display for FilterExpressionType {
                         .join("")
                 )
             }
-            FilterExpressionType::Function { name, args } => {
+            FilterExpression::Function { name, args, .. } => {
                 write!(
                     f,
                     "{}({})",
@@ -413,80 +465,38 @@ impl fmt::Display for FilterExpressionType {
 }
 
 #[pymethods]
-impl FilterExpressionType {
+impl FilterExpression {
     fn __repr__(&self) -> String {
         match self {
-            FilterExpressionType::True {} => "<jpq.FilterExpressionType.True>".to_string(),
-            FilterExpressionType::False {} => "<jpq.FilterExpressionType.False>".to_string(),
-            FilterExpressionType::Null {} => "<jpq.FilterExpressionType.Null>".to_string(),
-            FilterExpressionType::String { .. } => {
-                format!("<jpq.FilterExpressionType.String `{}`>", self)
+            FilterExpression::True_ { .. } => "<jpq.FilterExpression.True>".to_string(),
+            FilterExpression::False_ { .. } => "<jpq.FilterExpression.False>".to_string(),
+            FilterExpression::Null { .. } => "<jpq.FilterExpression.Null>".to_string(),
+            FilterExpression::String { .. } => {
+                format!("<jpq.FilterExpression.String `{}`>", self)
             }
-            FilterExpressionType::Int { .. } => format!("<jpq.FilterExpressionType.Int {}>", self),
-            FilterExpressionType::Float { .. } => {
-                format!("<jpq.FilterExpressionType.Float `{}`>", self)
+            FilterExpression::Int { .. } => format!("<jpq.FilterExpression.Int {}>", self),
+            FilterExpression::Float { .. } => {
+                format!("<jpq.FilterExpression.Float `{}`>", self)
             }
-            FilterExpressionType::Not { .. } => {
-                format!("<jpq.FilterExpressionType.Not `{}`>", self)
+            FilterExpression::Not { .. } => {
+                format!("<jpq.FilterExpression.Not `{}`>", self)
             }
-            FilterExpressionType::Logical { .. } => {
-                format!("<jpq.FilterExpressionType.Logical `{}`>", self)
+            FilterExpression::Logical { .. } => {
+                format!("<jpq.FilterExpression.Logical `{}`>", self)
             }
-            FilterExpressionType::Comparison { .. } => {
-                format!("<jpq.FilterExpressionType.Comparison `{}`>", self)
+            FilterExpression::Comparison { .. } => {
+                format!("<jpq.FilterExpression.Comparison `{}`>", self)
             }
-            FilterExpressionType::RelativeQuery { .. } => {
-                format!("<jpq.FilterExpressionType.RelativeQuery `{}`>", self)
+            FilterExpression::RelativeQuery { .. } => {
+                format!("<jpq.FilterExpression.RelativeQuery `{}`>", self)
             }
-            FilterExpressionType::RootQuery { .. } => {
-                format!("<jpq.FilterExpressionType.RootQuery `{}`>", self)
+            FilterExpression::RootQuery { .. } => {
+                format!("<jpq.FilterExpression.RootQuery `{}`>", self)
             }
-            FilterExpressionType::Function { .. } => {
-                format!("<jpq.FilterExpressionType.Function `{}`>", self)
+            FilterExpression::Function { .. } => {
+                format!("<jpq.FilterExpression.Function `{}`>", self)
             }
         }
-    }
-
-    fn __str__(&self) -> String {
-        self.to_string()
-    }
-}
-
-// TODO: combine FilterExpression and FilterExpressionType into a single enum
-
-#[pyclass]
-#[derive(Debug, Clone)]
-pub struct FilterExpression {
-    #[pyo3(get)]
-    pub span: (usize, usize),
-    #[pyo3(get)]
-    pub kind: FilterExpressionType,
-}
-
-impl FilterExpression {
-    pub fn new(span: (usize, usize), kind: FilterExpressionType) -> Self {
-        FilterExpression { span, kind }
-    }
-
-    pub fn is_literal(&self) -> bool {
-        use FilterExpressionType::*;
-        matches!(
-            self.kind,
-            True {} | False {} | Null {} | String { .. } | Int { .. } | Float { .. }
-        )
-    }
-}
-
-impl fmt::Display for FilterExpression {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.kind.to_string())
-    }
-}
-
-#[pymethods]
-impl FilterExpression {
-    fn __repr__(&self) -> String {
-        format!("<jpq.FilterExpression {}>", self)
     }
 
     fn __str__(&self) -> String {
