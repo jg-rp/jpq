@@ -568,7 +568,7 @@ fn lex_inside_filter(l: &mut Lexer) -> State {
         _ => {
             if is_digit(l.peek()) {
                 // positive number
-                lex_number(l);
+                return lex_number(l);
             } else if l.accept_run(is_function_name_first) {
                 // function name or keyword
                 l.accept_run(is_function_name_char);
@@ -607,7 +607,7 @@ fn lex_string(l: &mut Lexer, quote: char, next_state: State) -> State {
     l.ignore(); // ignore open quote
 
     if l.peek() == EOQ {
-        todo!("handle end of query after open quote");
+        return l.error("unexpected enf of query or null byte".to_string());
     }
 
     loop {

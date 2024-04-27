@@ -27,34 +27,47 @@ def valid_queries() -> Sequence[CTSCase]:
 
 QUERIES = valid_queries()
 
-COMPILE_AND_FIND_SETUP = "from jpq import find"
+# TODO: update *SETUP after jpq API changes
+
+COMPILE_AND_FIND_SETUP = """\
+from jpq import Env
+from jpq.nothing import NOTHING
+from jpq import JSONPathEnvironment
+ENV = Env(JSONPathEnvironment().function_extensions, NOTHING)"""
 
 COMPILE_AND_FIND_STMT = """\
 for path, data in QUERIES:
-    list(find(path, data))"""
+    ENV.find(path, data)"""
 
 COMPILE_AND_FIND_VALUES_STMT = """\
 for path, data in QUERIES:
-    [node.value for node in find(path, data)]"""
+    [node[0] for node in ENV.find(path, data)]"""
 
-JUST_COMPILE_SETUP = "from jpq import compile"
+JUST_COMPILE_SETUP = """\
+from jpq import Env
+from jpq.nothing import NOTHING
+from jpq import JSONPathEnvironment
+ENV = Env(JSONPathEnvironment().function_extensions, NOTHING)"""
 
 JUST_COMPILE_STMT = """\
 for path, _ in QUERIES:
-    compile(path)"""
+    ENV.compile(path)"""
 
 JUST_FIND_SETUP = """\
-from jpq import compile
-compiled_queries = [(compile(q), d) for q, d in QUERIES]
+from jpq import Env
+from jpq.nothing import NOTHING
+from jpq import JSONPathEnvironment
+ENV = Env(JSONPathEnvironment().function_extensions, NOTHING)
+compiled_queries = [(ENV.compile(q), d) for q, d in QUERIES]
 """
 
 JUST_FIND_STMT = """\
 for path, data in compiled_queries:
-    list(path.find(data))"""
+    ENV.query(path, data)"""
 
 JUST_FIND_VALUES_STMT = """\
 for path, data in compiled_queries:
-    [node.value for node in path.find(data)]"""
+    [node[0] for node in ENV.query(path, data)]"""
 
 
 def benchmark(number: int = 100, best_of: int = 3) -> None:

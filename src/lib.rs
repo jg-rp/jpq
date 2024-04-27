@@ -92,6 +92,7 @@
 //! ```
 //!
 //! [function extensions]: https://datatracker.ietf.org/doc/html/rfc9535#name-function-extensions
+pub mod environment;
 pub mod errors;
 pub mod lexer;
 pub mod parser;
@@ -104,35 +105,49 @@ pub use parser::standard_functions;
 pub use parser::ExpressionType;
 pub use parser::FunctionSignature;
 pub use parser::Parser;
+
 pub use query::Query;
 
-use pyo3::exceptions::PyValueError;
+use pyo3::create_exception;
+use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
+
+// TODO: create more exceptions
+create_exception!(jpq, PyJSONPathError, PyException, "JSONPath error.");
+create_exception!(
+    jpq,
+    JSONPathTypeError,
+    PyJSONPathError,
+    "JSONPath type error."
+);
 
 impl std::convert::From<JSONPathError> for PyErr {
     fn from(err: JSONPathError) -> Self {
-        // TODO: custom python error class
-        PyValueError::new_err(err.to_string()) // TODO: include span
+        match err.kind {
+            // TODO: improve error messages
+            JSONPathErrorType::TypeError => JSONPathTypeError::new_err(err.to_string()),
+            _ => PyJSONPathError::new_err(err.to_string()),
+        }
     }
 }
-
-#[pyfunction]
-fn parse(query: &str) -> Result<Query, JSONPathError> {
-    Query::standard(query)
-}
-
-// TODO: pyfunction for Parser with function extensions
-// TODO: or, more likely, a pyclass wrapping Parser.add_function and Parser.parse
 
 #[pymodule]
 #[pyo3(name = "jpq")]
 fn jpq_extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    m.add_function(wrap_pyfunction!(parse, m)?)?;
+    m.add(
+        "PyJSONPathError",
+        m.py().get_type_bound::<PyJSONPathError>(),
+    )?;
+    m.add(
+        "JSONPathTypeError",
+        m.py().get_type_bound::<JSONPathTypeError>(),
+    )?;
     m.add_class::<query::Segment>()?;
     m.add_class::<query::Selector>()?;
     m.add_class::<query::LogicalOperator>()?;
     m.add_class::<query::ComparisonOperator>()?;
     m.add_class::<query::FilterExpression>()?;
     m.add_class::<query::Query>()?;
+    m.add_class::<environment::Env>()?;
     Ok(())
 }

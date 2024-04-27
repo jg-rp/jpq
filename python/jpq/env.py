@@ -1,16 +1,10 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING
-from typing import Iterable
+from typing import Any
 
 from .function_extensions import FilterFunction
 from . import function_extensions
-from .query import JSONPathQuery
-from .query import JSONPathNodeList
-from jpq import parse
 
-if TYPE_CHECKING:
-    from .query import JSONPathNode
-    from .query import JSONValue
+JSONValue = list[Any] | dict[str, Any] | str | int | float | None | bool
 
 
 class JSONPathEnvironment:
@@ -32,11 +26,11 @@ class JSONPathEnvironment:
         self.function_extensions["search"] = function_extensions.Search()
         self.function_extensions["value"] = function_extensions.Value()
 
-    def compile(self, query: str) -> JSONPathQuery:
-        return JSONPathQuery(parse(query), env=self)
+    # def compile(self, query: str) -> JSONPathQuery:
+    #     return JSONPathQuery(parse(query), env=self)
 
-    def finditer(self, query: str, value: JSONValue) -> Iterable[JSONPathNode]:
-        return self.compile(query).finditer(value)
+    # def finditer(self, query: str, value: JSONValue) -> Iterable[JSONPathNode]:
+    #     return self.compile(query).finditer(value)
 
-    def find(self, query: str, value: JSONValue) -> JSONPathNodeList:
-        return JSONPathNodeList(self.finditer(query, value))
+    # def find(self, query: str, value: JSONValue) -> JSONPathNodeList:
+    #     return JSONPathNodeList(self.finditer(query, value))

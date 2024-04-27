@@ -57,6 +57,7 @@ const PRECEDENCE_LOGICAL_AND: u8 = 4;
 const PRECEDENCE_RELATIONAL: u8 = 5;
 const PRECEDENCE_LOGICAL_NOT: u8 = 7;
 
+#[derive(Clone, Copy)]
 pub enum ExpressionType {
     Logical,
     Nodes,
@@ -138,7 +139,7 @@ impl TokenStream {
 
 pub struct Parser {
     pub index_range: RangeInclusive<i64>,
-    pub functions: HashMap<String, FunctionSignature>,
+    pub function_types: HashMap<String, FunctionSignature>,
 }
 
 impl Default for Parser {
@@ -151,7 +152,7 @@ impl Parser {
     pub fn new() -> Self {
         Parser {
             index_range: ((-2_i64).pow(53) + 1..=2_i64.pow(53) - 1),
-            functions: standard_functions(),
+            function_types: standard_functions(),
         }
     }
 
@@ -161,7 +162,7 @@ impl Parser {
         params: Vec<ExpressionType>,
         returns: ExpressionType,
     ) {
-        self.functions.insert(
+        self.function_types.insert(
             name.to_owned(),
             FunctionSignature {
                 param_types: params,
@@ -315,18 +316,6 @@ impl Parser {
                 }
             }
 
-            #[cfg(debug_assertions)]
-            debug_assert!(
-                matches!(
-                    it.peek(),
-                    Token {
-                        kind: Comma | TokenType::RBracket,
-                        ..
-                    }
-                ),
-                "expected a comma or the end of a bracketed selection"
-            );
-
             // expect a comma or closing bracket
             match it.peek() {
                 Token { kind: RBracket, .. } => continue,
@@ -453,7 +442,7 @@ impl Parser {
                 if let Some(FunctionSignature {
                     return_type: ExpressionType::Value,
                     ..
-                }) = self.functions.get(name)
+                }) = self.function_types.get(name)
                 {
                     return Err(JSONPathError::typ(
                         format!("result of {}() must be compared", name),
@@ -838,7 +827,7 @@ impl Parser {
                 if let Some(FunctionSignature {
                     return_type: ExpressionType::Value,
                     ..
-                }) = self.functions.get(name)
+                }) = self.function_types.get(name)
                 {
                     Ok(())
                 } else {
@@ -858,7 +847,7 @@ impl Parser {
         args: &[FilterExpression],
         token: &Token,
     ) -> Result<(), JSONPathError> {
-        let signature = self.functions.get(func_name).ok_or_else(|| {
+        let signature = self.function_types.get(func_name).ok_or_else(|| {
             JSONPathError::name(format!("unknown function `{}`", func_name), token.span)
         })?;
 
@@ -947,7 +936,7 @@ impl Parser {
             FilterExpression::Function { name, .. } => {
                 // some functions return a value
                 matches!(
-                    self.functions.get(name),
+                    self.function_types.get(name),
                     Some(FunctionSignature {
                         return_type: ExpressionType::Value,
                         ..
@@ -963,7 +952,7 @@ impl Parser {
             FilterExpression::RelativeQuery { .. } | FilterExpression::RootQuery { .. } => true,
             FilterExpression::Function { name, .. } => {
                 matches!(
-                    self.functions.get(name),
+                    self.function_types.get(name),
                     Some(FunctionSignature {
                         return_type: ExpressionType::Nodes,
                         ..

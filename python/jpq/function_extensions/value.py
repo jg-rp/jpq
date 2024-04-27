@@ -21,5 +21,5 @@ class Value(FilterFunction):
     def __call__(self, nodes: JSONPathNodeList) -> object:
         """Return the first node in a node list if it has only one item."""
         if len(nodes) == 1:
-            return nodes[0].value
+            return nodes[0][0]
         return NOTHING

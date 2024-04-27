@@ -1,12 +1,15 @@
 from __future__ import annotations
 from enum import Enum
 
+from .function_extensions.filter_function import FilterFunction
+
 __all__ = (
     "FilterExpression",
     "Selector",
     "Segment",
     "Query",
-    "parse",
+    "Env",
+    "PyJSONPathError",
 )
 
 class ComparisonOperator(Enum):
@@ -171,4 +174,15 @@ class Query:
     @property
     def segments(self) -> list[Segment.Child | Segment.Recursive]: ...
 
-def parse(query: str) -> Query: ...
+Node = tuple[object, str]
+NodeList = list[Node]
+
+class Env:
+    def __init__(
+        self, function_register: dict[str, FilterFunction], nothing: object
+    ) -> None: ...
+    def find(self, query: str, value: object) -> NodeList: ...
+    def compile(self, query: str) -> Query: ...
+    def query(self, query: Query, value: object) -> NodeList: ...
+
+class PyJSONPathError(Exception): ...

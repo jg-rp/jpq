@@ -13,6 +13,11 @@ import pytest
 
 import jpq
 from jpq import JSONValue
+from jpq.nothing import NOTHING
+from jpq import JSONPathEnvironment
+
+# XXX: dev
+ENV = jpq.Env(JSONPathEnvironment().function_extensions, NOTHING)
 
 
 @dataclass
@@ -48,7 +53,13 @@ def test_compliance(case: Case) -> None:
         pytest.skip(reason=SKIP[case.name])  # no cov
 
     assert case.document is not None
-    rv = jpq.find(case.selector, case.document).values()
+    rv = [
+        n
+        for n, _ in ENV.find(
+            case.selector,
+            case.document,
+        )
+    ]
 
     if case.results is not None:
         assert rv in case.results
@@ -56,11 +67,10 @@ def test_compliance(case: Case) -> None:
         assert rv == case.result
 
 
-# TODO:
-# @pytest.mark.parametrize("case", invalid_cases(), ids=operator.attrgetter("name"))
-# def test_invalid_selectors(case: Case) -> None:
-#     if case.name in SKIP:
-#         pytest.skip(reason=SKIP[case.name])  # no cov
+@pytest.mark.parametrize("case", invalid_cases(), ids=operator.attrgetter("name"))
+def test_invalid_selectors(case: Case) -> None:
+    if case.name in SKIP:
+        pytest.skip(reason=SKIP[case.name])  # no cov
 
-#     with pytest.raises(jsonpath.JSONPathError):
-#         jsonpath.compile(case.selector)
+    with pytest.raises(jpq.PyJSONPathError):
+        ENV.compile(case.selector)
