@@ -3,16 +3,16 @@
 from collections.abc import Sized
 
 from jpq import NOTHING
+from jpq import ExpressionType
+from jpq import FilterFunction
 from jpq import Nothing
-from jpq.function_extensions import ExpressionType
-from jpq.function_extensions import FilterFunction
 
 
 class Length(FilterFunction):
     """The standard `length` function."""
 
-    arg_types = [ExpressionType.VALUE]
-    return_type = ExpressionType.VALUE
+    arg_types = [ExpressionType.Value]
+    return_type = ExpressionType.Value
 
     def __call__(self, obj: Sized) -> int | Nothing:
         """Return an object's length.

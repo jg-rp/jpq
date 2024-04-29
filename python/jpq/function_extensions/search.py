@@ -2,15 +2,15 @@
 
 import regex as re
 
-from jpq.function_extensions import ExpressionType
-from jpq.function_extensions import FilterFunction
+from jpq import ExpressionType
+from jpq import FilterFunction
 
 
 class Search(FilterFunction):
     """The standard `search` function."""
 
-    arg_types = [ExpressionType.VALUE, ExpressionType.VALUE]
-    return_type = ExpressionType.LOGICAL
+    arg_types = [ExpressionType.Value, ExpressionType.Value]
+    return_type = ExpressionType.Logical
 
     def __call__(self, string: str, pattern: str) -> bool:
         """Return `True` if _string_ contains _pattern_, or `False` otherwise."""

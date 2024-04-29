@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from .function_extensions.filter_function import FilterFunction
+from .filter_function import FilterFunction
 
 __all__ = (
     "FilterExpression",
@@ -187,3 +187,11 @@ class Env:
     def query(self, query: Query, value: object) -> NodeList: ...
 
 class PyJSONPathError(Exception): ...
+class JSONPathTypeError(Exception): ...
+
+class ExpressionType(Enum):
+    """Function extension argument and return types."""
+
+    Logical = ...
+    Nodes = ...
+    Value = ...

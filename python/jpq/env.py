@@ -14,7 +14,7 @@ from .jpq import Query as _Query
 from .nothing import NOTHING
 
 if TYPE_CHECKING:
-    from .function_extensions import FilterFunction
+    from . import FilterFunction
 
 
 JSONValue = list[Any] | dict[str, Any] | str | int | float | None | bool

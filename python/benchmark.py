@@ -35,7 +35,7 @@ for path, data in QUERIES:
 
 COMPILE_AND_FIND_VALUES_STMT = """\
 for path, data in QUERIES:
-    [node[0] for node in find(path, data)]"""
+    find(path, data).values()"""
 
 JUST_COMPILE_SETUP = "from jpq import compile"
 

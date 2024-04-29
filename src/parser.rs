@@ -43,7 +43,9 @@ use crate::{
     query::Query,
     segment::Segment,
     selector::Selector,
+    standard_functions,
     token::{Token, TokenType},
+    ExpressionType, FunctionSignature,
 };
 use std::{collections::HashMap, iter::Peekable, ops::RangeInclusive, vec::IntoIter};
 
@@ -59,64 +61,6 @@ const PRECEDENCE_LOGICAL_OR: u8 = 3;
 const PRECEDENCE_LOGICAL_AND: u8 = 4;
 const PRECEDENCE_RELATIONAL: u8 = 5;
 const PRECEDENCE_LOGICAL_NOT: u8 = 7;
-
-#[derive(Clone, Copy)]
-pub enum ExpressionType {
-    Logical,
-    Nodes,
-    Value,
-}
-
-pub struct FunctionSignature {
-    pub param_types: Vec<ExpressionType>,
-    pub return_type: ExpressionType,
-}
-
-pub fn standard_functions() -> HashMap<String, FunctionSignature> {
-    let mut functions = HashMap::new();
-
-    functions.insert(
-        "count".to_owned(),
-        FunctionSignature {
-            param_types: vec![ExpressionType::Nodes],
-            return_type: ExpressionType::Value,
-        },
-    );
-
-    functions.insert(
-        "length".to_owned(),
-        FunctionSignature {
-            param_types: vec![ExpressionType::Value],
-            return_type: ExpressionType::Value,
-        },
-    );
-
-    functions.insert(
-        "match".to_owned(),
-        FunctionSignature {
-            param_types: vec![ExpressionType::Value, ExpressionType::Value],
-            return_type: ExpressionType::Logical,
-        },
-    );
-
-    functions.insert(
-        "search".to_owned(),
-        FunctionSignature {
-            param_types: vec![ExpressionType::Value, ExpressionType::Value],
-            return_type: ExpressionType::Logical,
-        },
-    );
-
-    functions.insert(
-        "value".to_owned(),
-        FunctionSignature {
-            param_types: vec![ExpressionType::Nodes],
-            return_type: ExpressionType::Value,
-        },
-    );
-
-    functions
-}
 
 struct TokenStream {
     tokens: Peekable<IntoIter<Token>>,

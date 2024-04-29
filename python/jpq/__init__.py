@@ -2,6 +2,9 @@ from .env import JSONPathEnvironment
 from .env import JSONPathNodeList
 from .env import JSONPathQuery
 from .env import JSONValue
+from .filter_function import FilterFunction
+from .jpq import ExpressionType
+from .jpq import JSONPathTypeError
 from .jpq import PyJSONPathError
 from .nothing import NOTHING
 from .nothing import Nothing
@@ -11,6 +14,8 @@ NodeList = list[Node]
 
 __all__ = (
     "Env",
+    "ExpressionType",
+    "FilterFunction",
     "JSONPathEnvironment",
     "JSONPathNodeList",
     "JSONPathQuery",
@@ -18,7 +23,9 @@ __all__ = (
     "Nothing",
     "NOTHING",
     "PyJSONPathError",
+    "JSONPathTypeError",
 )
+
 
 DEFAULT_ENV = JSONPathEnvironment()
 find = DEFAULT_ENV.find

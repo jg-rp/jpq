@@ -5,8 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from jpq import NOTHING
-from jpq.function_extensions import ExpressionType
-from jpq.function_extensions import FilterFunction
+from jpq import ExpressionType
+from jpq import FilterFunction
 
 if TYPE_CHECKING:
     from jpq import NodeList
@@ -15,8 +15,8 @@ if TYPE_CHECKING:
 class Value(FilterFunction):
     """The standard `value` function."""
 
-    arg_types = [ExpressionType.NODES]
-    return_type = ExpressionType.VALUE
+    arg_types = [ExpressionType.Nodes]
+    return_type = ExpressionType.Value
 
     def __call__(self, nodes: NodeList) -> object:
         """Return the first node in a node list if it has only one item."""

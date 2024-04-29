@@ -8,11 +8,10 @@ pub mod segment;
 pub mod selector;
 pub mod token;
 
+use std::collections::HashMap;
+
 pub use errors::JSONPathError;
 pub use errors::JSONPathErrorType;
-pub use parser::standard_functions;
-pub use parser::ExpressionType;
-pub use parser::FunctionSignature;
 pub use parser::Parser;
 pub use query::Query;
 
@@ -30,6 +29,65 @@ pub struct FilterContext<'py> {
     env: &'py environment::Env,
     root: Bound<'py, PyAny>,
     current: Bound<'py, PyAny>,
+}
+
+#[pyclass]
+#[derive(Clone, Copy, Debug)]
+pub enum ExpressionType {
+    Logical,
+    Nodes,
+    Value,
+}
+
+pub struct FunctionSignature {
+    pub param_types: Vec<ExpressionType>,
+    pub return_type: ExpressionType,
+}
+
+pub fn standard_functions() -> HashMap<String, FunctionSignature> {
+    let mut functions = HashMap::new();
+
+    functions.insert(
+        "count".to_owned(),
+        FunctionSignature {
+            param_types: vec![ExpressionType::Nodes],
+            return_type: ExpressionType::Value,
+        },
+    );
+
+    functions.insert(
+        "length".to_owned(),
+        FunctionSignature {
+            param_types: vec![ExpressionType::Value],
+            return_type: ExpressionType::Value,
+        },
+    );
+
+    functions.insert(
+        "match".to_owned(),
+        FunctionSignature {
+            param_types: vec![ExpressionType::Value, ExpressionType::Value],
+            return_type: ExpressionType::Logical,
+        },
+    );
+
+    functions.insert(
+        "search".to_owned(),
+        FunctionSignature {
+            param_types: vec![ExpressionType::Value, ExpressionType::Value],
+            return_type: ExpressionType::Logical,
+        },
+    );
+
+    functions.insert(
+        "value".to_owned(),
+        FunctionSignature {
+            param_types: vec![ExpressionType::Nodes],
+            return_type: ExpressionType::Value,
+        },
+    );
+
+    functions
 }
 
 #[pymodule]
@@ -55,6 +113,7 @@ fn jpq_extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
         "JSONPathExtensionError",
         m.py().get_type_bound::<errors::JSONPathExtensionError>(),
     )?;
+    m.add_class::<ExpressionType>()?;
     m.add_class::<segment::Segment>()?;
     m.add_class::<selector::Selector>()?;
     m.add_class::<filter::LogicalOp>()?;
