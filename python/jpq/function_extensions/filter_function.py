@@ -1,4 +1,5 @@
 """Classes modeling the JSONPath spec type system for function extensions."""
+
 from abc import ABC
 from abc import abstractmethod
 from enum import Enum
@@ -6,6 +7,7 @@ from typing import Any
 from typing import List
 
 
+# TODO: replace this with Rust enum
 class ExpressionType(Enum):
     """The type of a filter function argument or return value."""
 

@@ -3,11 +3,8 @@ from .env import JSONPathNodeList
 from .env import JSONPathQuery
 from .env import JSONValue
 from .jpq import PyJSONPathError
-from .nothing import Nothing
 from .nothing import NOTHING
-
-# TODO: __version__
-
+from .nothing import Nothing
 
 Node = tuple[object, str]
 NodeList = list[Node]
@@ -25,4 +22,4 @@ __all__ = (
 
 DEFAULT_ENV = JSONPathEnvironment()
 find = DEFAULT_ENV.find
-compile = DEFAULT_ENV.compile
+compile = DEFAULT_ENV.compile  # noqa: A001

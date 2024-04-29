@@ -9,9 +9,8 @@ import operator
 from dataclasses import dataclass
 from typing import Any
 
-import pytest
-
 import jpq
+import pytest
 from jpq import JSONValue
 
 

@@ -1,4 +1,4 @@
-class Nothing:
+class Nothing:  # noqa: D100
     """The special result "Nothing"."""
 
     __slots__ = ()

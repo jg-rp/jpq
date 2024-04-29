@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from enum import Enum
 
 from .function_extensions.filter_function import FilterFunction
@@ -25,11 +26,11 @@ class LogicalOp(Enum):
     Or = ...
 
 class FilterExpression:
-    class True_:
+    class True_:  # noqa: N801
         @property
         def span(self) -> tuple[int, int]: ...
 
-    class False_:
+    class False_:  # noqa: N801
         @property
         def span(self) -> tuple[int, int]: ...
 
