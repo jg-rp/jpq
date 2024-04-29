@@ -1,102 +1,11 @@
-//! A JSONPath expression parser, producing a JSON implementation agnostic
-//! abstract syntax tree, following the JSONPath model described in RFC 9535.
-//!
-//! ## Standard queries
-//!
-//! To parse a JSONPath expression that is limited to standard [function extensions],
-//! use [`Query::standard`].
-//!
-//! ```
-//! use jpq::{errors::JSONPathError, Query};
-//!
-//! fn main() -> Result<(), JSONPathError> {
-//!     let q = Query::standard("$..foo[0]")?;
-//!     println!("{:#?}", q);
-//!     Ok(())
-//! }
-//! ```
-//!
-//! Debug output from the example above shows this syntax tree:
-//!
-//! ```text
-//! Query {
-//!     segments: [
-//!         Recursive {
-//!             span: (
-//!                 1,
-//!                 3,
-//!             ),
-//!             selectors: [
-//!                 Name {
-//!                     span: (
-//!                         3,
-//!                         6,
-//!                     ),
-//!                     name: "foo",
-//!                 },
-//!             ],
-//!         },
-//!         Child {
-//!             span: (
-//!                 6,
-//!                 7,
-//!             ),
-//!             selectors: [
-//!                 Index {
-//!                     span: (
-//!                         7,
-//!                         8,
-//!                     ),
-//!                     index: 0,
-//!                 },
-//!             ],
-//!         },
-//!     ],
-//! }
-//! ```
-//!
-//! ## Function extensions
-//!
-//! Register [function extensions] with a new [`Parser`] by calling [`Parser::add_function`],
-//! then use [`Parser::parse`] to create a new [`Query`].
-//!
-//! ```
-//! use jpq::{errors::JSONPathError, ExpressionType, Parser};
-//!
-//! fn main() -> Result<(), JSONPathError> {
-//!     let mut parser = Parser::new();
-//!
-//!     parser.add_function(
-//!         "foo",
-//!         vec![ExpressionType::Value, ExpressionType::Nodes],
-//!         ExpressionType::Logical,
-//!     );
-//!
-//!     let q = parser.parse("$.some[?foo('7', @.thing)][1, 4]")?;
-//!     println!("{:?}", q);
-//!     Ok(())
-//! }
-//! ```
-//!
-//! Note that a [`Query`] is displayed in its canonical form when printed.
-//!
-//! ```text
-//! $['some'][?foo("7", @['thing'])][1, 4]
-//! ```
-//!
-//! Without registering a signature for `foo`, we would get a [`JSONPathError`] with
-//! `kind` set to [`JSONPathErrorType::NameError`].
-//!
-//! ```text
-//! Error: JSONPathError { kind: NameError, msg: "unknown function `foo`", span: (8, 11) }
-//! ```
-//!
-//! [function extensions]: https://datatracker.ietf.org/doc/html/rfc9535#name-function-extensions
 pub mod environment;
 pub mod errors;
+pub mod filter;
 pub mod lexer;
 pub mod parser;
 pub mod query;
+pub mod segment;
+pub mod selector;
 pub mod token;
 
 pub use errors::JSONPathError;
@@ -105,30 +14,22 @@ pub use parser::standard_functions;
 pub use parser::ExpressionType;
 pub use parser::FunctionSignature;
 pub use parser::Parser;
-
 pub use query::Query;
 
-use pyo3::create_exception;
-use pyo3::exceptions::PyException;
 use pyo3::prelude::*;
 
-// TODO: create more exceptions
-create_exception!(jpq, PyJSONPathError, PyException, "JSONPath error.");
-create_exception!(
-    jpq,
-    JSONPathTypeError,
-    PyJSONPathError,
-    "JSONPath type error."
-);
+pub type Node<'py> = (Bound<'py, PyAny>, String);
+pub type NodeList<'py> = Vec<Node<'py>>;
 
-impl std::convert::From<JSONPathError> for PyErr {
-    fn from(err: JSONPathError) -> Self {
-        match err.kind {
-            // TODO: improve error messages
-            JSONPathErrorType::TypeError => JSONPathTypeError::new_err(err.to_string()),
-            _ => PyJSONPathError::new_err(err.to_string()),
-        }
-    }
+pub struct QueryContext<'py> {
+    env: &'py environment::Env,
+    root: Bound<'py, PyAny>,
+}
+
+pub struct FilterContext<'py> {
+    env: &'py environment::Env,
+    root: Bound<'py, PyAny>,
+    current: Bound<'py, PyAny>,
 }
 
 #[pymodule]
@@ -136,17 +37,29 @@ impl std::convert::From<JSONPathError> for PyErr {
 fn jpq_extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add(
         "PyJSONPathError",
-        m.py().get_type_bound::<PyJSONPathError>(),
+        m.py().get_type_bound::<errors::PyJSONPathError>(),
     )?;
     m.add(
         "JSONPathTypeError",
-        m.py().get_type_bound::<JSONPathTypeError>(),
+        m.py().get_type_bound::<errors::JSONPathTypeError>(),
     )?;
-    m.add_class::<query::Segment>()?;
-    m.add_class::<query::Selector>()?;
-    m.add_class::<query::LogicalOperator>()?;
-    m.add_class::<query::ComparisonOperator>()?;
-    m.add_class::<query::FilterExpression>()?;
+    m.add(
+        "JSONPathSyntaxError",
+        m.py().get_type_bound::<errors::JSONPathSyntaxError>(),
+    )?;
+    m.add(
+        "JSONPathNameError",
+        m.py().get_type_bound::<errors::JSONPathNameError>(),
+    )?;
+    m.add(
+        "JSONPathExtensionError",
+        m.py().get_type_bound::<errors::JSONPathExtensionError>(),
+    )?;
+    m.add_class::<segment::Segment>()?;
+    m.add_class::<selector::Selector>()?;
+    m.add_class::<filter::LogicalOp>()?;
+    m.add_class::<filter::ComparisonOp>()?;
+    m.add_class::<filter::FilterExpression>()?;
     m.add_class::<query::Query>()?;
     m.add_class::<environment::Env>()?;
     Ok(())

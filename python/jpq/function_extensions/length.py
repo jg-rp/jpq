@@ -2,8 +2,8 @@
 
 from collections.abc import Sized
 
-from jpq.nothing import NOTHING
-from jpq.nothing import Nothing
+from jpq import NOTHING
+from jpq import Nothing
 from jpq.function_extensions import ExpressionType
 from jpq.function_extensions import FilterFunction
 

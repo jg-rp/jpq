@@ -38,8 +38,11 @@
 //! [standard functions]: https://datatracker.ietf.org/doc/html/rfc9535#name-function-extensions
 use crate::{
     errors::{JSONPathError, JSONPathErrorType},
+    filter::{ComparisonOp, FilterExpression, LogicalOp},
     lexer::lex,
-    query::{ComparisonOperator, FilterExpression, LogicalOperator, Query, Segment, Selector},
+    query::Query,
+    segment::Segment,
+    selector::Selector,
     token::{Token, TokenType},
 };
 use std::{collections::HashMap, iter::Peekable, ops::RangeInclusive, vec::IntoIter};
@@ -453,7 +456,7 @@ impl Parser {
             FilterExpression::True_ { span, .. }
             | FilterExpression::False_ { span, .. }
             | FilterExpression::Null { span, .. }
-            | FilterExpression::String { span, .. }
+            | FilterExpression::StringLiteral { span, .. }
             | FilterExpression::Int { span, .. }
             | FilterExpression::Float { span, .. } => {
                 return Err(JSONPathError::typ(
@@ -502,7 +505,7 @@ impl Parser {
                     Ok(FilterExpression::Logical {
                         span: left.span(),
                         left: Box::new(left),
-                        operator: LogicalOperator::And,
+                        operator: LogicalOp::And,
                         right: Box::new(right),
                     })
                 }
@@ -517,7 +520,7 @@ impl Parser {
                     Ok(FilterExpression::Logical {
                         span: left.span(),
                         left: Box::new(left),
-                        operator: LogicalOperator::Or,
+                        operator: LogicalOp::Or,
                         right: Box::new(right),
                     })
                 }
@@ -528,7 +531,7 @@ impl Parser {
                 Ok(FilterExpression::Comparison {
                     span: left.span(),
                     left: Box::new(left),
-                    operator: ComparisonOperator::Eq,
+                    operator: ComparisonOp::Eq,
                     right: Box::new(right),
                 })
             }
@@ -538,7 +541,7 @@ impl Parser {
                 Ok(FilterExpression::Comparison {
                     span: left.span(),
                     left: Box::new(left),
-                    operator: ComparisonOperator::Ge,
+                    operator: ComparisonOp::Ge,
                     right: Box::new(right),
                 })
             }
@@ -548,7 +551,7 @@ impl Parser {
                 Ok(FilterExpression::Comparison {
                     span: left.span(),
                     left: Box::new(left),
-                    operator: ComparisonOperator::Gt,
+                    operator: ComparisonOp::Gt,
                     right: Box::new(right),
                 })
             }
@@ -558,7 +561,7 @@ impl Parser {
                 Ok(FilterExpression::Comparison {
                     span: left.span(),
                     left: Box::new(left),
-                    operator: ComparisonOperator::Le,
+                    operator: ComparisonOp::Le,
                     right: Box::new(right),
                 })
             }
@@ -568,7 +571,7 @@ impl Parser {
                 Ok(FilterExpression::Comparison {
                     span: left.span(),
                     left: Box::new(left),
-                    operator: ComparisonOperator::Lt,
+                    operator: ComparisonOp::Lt,
                     right: Box::new(right),
                 })
             }
@@ -578,7 +581,7 @@ impl Parser {
                 Ok(FilterExpression::Comparison {
                     span: left.span(),
                     left: Box::new(left),
-                    operator: ComparisonOperator::Ne,
+                    operator: ComparisonOp::Ne,
                     right: Box::new(right),
                 })
             }
@@ -642,7 +645,7 @@ impl Parser {
             } => {
                 let value = unescape_string(value, span)?;
                 let token = it.next();
-                Ok(FilterExpression::String {
+                Ok(FilterExpression::StringLiteral {
                     span: token.span,
                     value,
                 })
@@ -708,7 +711,7 @@ impl Parser {
             } => {
                 let value = unescape_string(&value.replace("\\'", "'"), span)?;
                 let token = it.next();
-                Ok(FilterExpression::String {
+                Ok(FilterExpression::StringLiteral {
                     span: token.span,
                     value,
                 })

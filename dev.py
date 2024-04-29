@@ -1,18 +1,12 @@
 import json
-from jpq import JSONPathEnvironment
-from jpq import Env
-from jpq.nothing import NOTHING
+import jpq
 
-_env = JSONPathEnvironment()
-fr = _env.function_extensions
+d = [{"a": [1, 2, 3]}, {"a": [1], "d": "f"}, {"a": 1, "d": "f"}]
+q = "$[?count(@..*)>2]"
 
-d = {"a": "A", "b": "B"}
-q = "$.a"
-
-env = Env(fr, NOTHING)
-query = env.compile(q)
-nodes = env.find(q, d)
-assert env.query(query, d) == nodes
+query = jpq.compile(q)
+nodes = query.find(d)
+assert jpq.find(q, d) == nodes
 print(json.dumps([n for n, _ in nodes], indent=2))
 print([n for n, _ in nodes])
 print(len(nodes))

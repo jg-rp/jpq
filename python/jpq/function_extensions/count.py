@@ -8,7 +8,7 @@ from .filter_function import ExpressionType
 from .filter_function import FilterFunction
 
 if TYPE_CHECKING:
-    from jpq.node import JSONPathNodeList
+    from jpq import NodeList
 
 
 class Count(FilterFunction):
@@ -17,6 +17,6 @@ class Count(FilterFunction):
     arg_types = [ExpressionType.NODES]
     return_type = ExpressionType.VALUE
 
-    def __call__(self, node_list: JSONPathNodeList) -> int:
+    def __call__(self, node_list: NodeList) -> int:
         """Return the number of nodes in the node list."""
         return len(node_list)

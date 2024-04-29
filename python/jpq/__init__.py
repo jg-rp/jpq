@@ -1,21 +1,28 @@
-from .jpq import Env
-from .jpq import FilterExpression
-from .jpq import PyJSONPathError
-from .jpq import Segment
-from .jpq import Selector
-
-# TODO: we don't actually want to expose the above imports
-# TODO: __version__
 from .env import JSONPathEnvironment
+from .env import JSONPathNodeList
+from .env import JSONPathQuery
 from .env import JSONValue
+from .jpq import PyJSONPathError
+from .nothing import Nothing
+from .nothing import NOTHING
+
+# TODO: __version__
+
+
+Node = tuple[object, str]
+NodeList = list[Node]
 
 __all__ = (
     "Env",
-    "FilterExpression",
     "JSONPathEnvironment",
+    "JSONPathNodeList",
     "JSONPathQuery",
     "JSONValue",
+    "Nothing",
+    "NOTHING",
     "PyJSONPathError",
-    "Segment",
-    "Selector",
 )
+
+DEFAULT_ENV = JSONPathEnvironment()
+find = DEFAULT_ENV.find
+compile = DEFAULT_ENV.compile

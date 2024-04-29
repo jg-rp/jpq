@@ -13,11 +13,6 @@ import pytest
 
 import jpq
 from jpq import JSONValue
-from jpq.nothing import NOTHING
-from jpq import JSONPathEnvironment
-
-# XXX: dev
-ENV = jpq.Env(JSONPathEnvironment().function_extensions, NOTHING)
 
 
 @dataclass
@@ -55,7 +50,7 @@ def test_compliance(case: Case) -> None:
     assert case.document is not None
     rv = [
         n
-        for n, _ in ENV.find(
+        for n, _ in jpq.find(
             case.selector,
             case.document,
         )
@@ -73,4 +68,4 @@ def test_invalid_selectors(case: Case) -> None:
         pytest.skip(reason=SKIP[case.name])  # no cov
 
     with pytest.raises(jpq.PyJSONPathError):
-        ENV.compile(case.selector)
+        jpq.compile(case.selector)

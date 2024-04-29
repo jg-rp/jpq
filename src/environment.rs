@@ -1,6 +1,6 @@
 use pyo3::{prelude::*, types::PyDict};
 
-use crate::{query::NodeList, JSONPathError, Parser, Query};
+use crate::{JSONPathError, NodeList, Parser, Query};
 
 #[pyclass]
 pub struct Env {
@@ -27,12 +27,10 @@ impl Env {
         value: &Bound<'py, PyAny>,
     ) -> Result<NodeList<'py>, JSONPathError> {
         let query = self.parser.parse(query)?;
-        // TODO: propagate error
-        Ok(query.resolve(value, self))
+        query.resolve(value, self)
     }
 
     pub fn compile(&self, query: &str) -> Result<Query, JSONPathError> {
-        // TODO: Need to pair this result with an env python-side
         self.parser.parse(query)
     }
 
@@ -41,7 +39,6 @@ impl Env {
         query: Query,
         value: &Bound<'py, PyAny>,
     ) -> Result<NodeList<'py>, JSONPathError> {
-        // TODO: propagate error
-        Ok(query.resolve(value, self))
+        query.resolve(value, self)
     }
 }
