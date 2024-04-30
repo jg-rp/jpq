@@ -31,6 +31,9 @@ pub enum Selector {
         span: (usize, usize),
         expression: Box<FilterExpression>,
     },
+    Keys {
+        span: (usize, usize),
+    },
 }
 
 impl Selector {
@@ -85,10 +88,12 @@ impl Selector {
             Selector::Filter { expression, .. } => {
                 if let Ok(list) = value.downcast::<PyList>() {
                     for (i, element) in list.iter().enumerate() {
+                        let py_i = i.to_object(node.0.py());
                         let filter_context = FilterContext {
                             env: context.env,
                             root: context.root.clone(),
                             current: element.clone(),
+                            current_key: Some(py_i.bind(node.0.py()).clone()),
                         };
                         if is_truthy(&expression.evaluate(&filter_context)?) {
                             nodes.push((element, format!("{}[{}]", node.1, i)));
@@ -100,10 +105,18 @@ impl Selector {
                             env: context.env,
                             root: context.root.clone(),
                             current: val.clone(),
+                            current_key: Some(key.clone()),
                         };
                         if is_truthy(&expression.evaluate(&filter_context)?) {
                             nodes.push((val, format!("{}['{}']", node.1, key)));
                         }
+                    }
+                }
+            }
+            Selector::Keys { .. } => {
+                if let Ok(dict) = value.downcast::<PyDict>() {
+                    for (i, (key, _val)) in dict.iter().enumerate() {
+                        nodes.push((key, format!("{}[~][{}]", node.1, i)));
                     }
                 }
             }
@@ -190,6 +203,7 @@ impl Selector {
             Selector::Slice { .. } => format!("<jpq.Selector.Slice `{}`>", self),
             Selector::Wild { .. } => format!("<jpq.Selector.Wild `{}`>", self),
             Selector::Filter { .. } => format!("<jpq.Selector.Filter `{}`>", self),
+            Selector::Keys { .. } => format!("<jpq.Selector.Keys `{}`>", self),
         }
     }
 
@@ -222,6 +236,7 @@ impl fmt::Display for Selector {
             }
             Selector::Wild { .. } => f.write_char('*'),
             Selector::Filter { expression, .. } => write!(f, "?{expression}"),
+            Selector::Keys { .. } => f.write_char('~'),
         }
     }
 }

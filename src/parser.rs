@@ -158,7 +158,7 @@ impl Parser {
                         selectors,
                     });
                 }
-                LBracket | Name { .. } | Wild => {
+                LBracket | Name { .. } | Wild | Keys => {
                     let token = (*it.peek()).clone();
                     let selectors = self.parse_selectors(it)?;
                     segments.push(Segment::Child {
@@ -189,6 +189,9 @@ impl Parser {
                 }])
             }
             Token { kind: Wild, .. } => Ok(vec![Selector::Wild {
+                span: it.next().span,
+            }]),
+            Token { kind: Keys, .. } => Ok(vec![Selector::Keys {
                 span: it.next().span,
             }]),
             Token { kind: LBracket, .. } => self.parse_bracketed(it),
@@ -244,6 +247,10 @@ impl Parser {
                 Token { kind: Wild, .. } => {
                     let token = it.next();
                     selectors.push(Selector::Wild { span: token.span });
+                }
+                Token { kind: Keys, .. } => {
+                    let token = it.next();
+                    selectors.push(Selector::Keys { span: token.span });
                 }
                 Token { kind: Filter, .. } => {
                     let selector = self.parse_filter(it)?;
@@ -666,6 +673,10 @@ impl Parser {
             }
             Token { kind: LParen, .. } => self.parse_grouped_expression(it),
             Token { kind: Not, .. } => self.parse_not_expression(it),
+            Token { kind: Key, .. } => {
+                let token = it.next();
+                Ok(FilterExpression::Key { span: token.span })
+            }
             Token { kind, span } => Err(JSONPathError::syntax(
                 format!("expected a filter expression, found {}", kind),
                 *span,
@@ -875,6 +886,7 @@ impl Parser {
         }
 
         match expr {
+            FilterExpression::Key { .. } => true,
             FilterExpression::RelativeQuery { query, .. }
             | FilterExpression::RootQuery { query, .. } => {
                 // singular queries will be coerced to a value

@@ -29,6 +29,7 @@ pub struct FilterContext<'py> {
     env: &'py environment::Env,
     root: Bound<'py, PyAny>,
     current: Bound<'py, PyAny>,
+    current_key: Option<Bound<'py, PyAny>>,
 }
 
 #[pyclass]

@@ -318,8 +318,12 @@ fn lex_segment(l: &mut Lexer) -> State {
 }
 
 fn lex_descendant_segment(l: &mut Lexer) -> State {
+    // NOTE: leading whitespace is not allowed
     if l.accept('*') {
         l.emit(TokenType::Wild);
+        State::LexSegment
+    } else if l.accept('~') {
+        l.emit(TokenType::Keys);
         State::LexSegment
     } else if l.accept('[') {
         l.emit(TokenType::LBracket);
@@ -348,6 +352,9 @@ fn lex_shorthand_selector(l: &mut Lexer) -> State {
 
     if l.accept('*') {
         l.emit(TokenType::Wild);
+        State::LexSegment
+    } else if l.accept('~') {
+        l.emit(TokenType::Keys);
         State::LexSegment
     } else if l.accept_if(is_name_first) {
         l.accept_run(is_name_char);
@@ -380,6 +387,11 @@ fn lex_inside_bracketed_segment(l: &mut Lexer) -> State {
         '*' => {
             l.next();
             l.emit(TokenType::Wild);
+            State::LexInsideBracketedSegment
+        }
+        '~' => {
+            l.next();
+            l.emit(TokenType::Keys);
             State::LexInsideBracketedSegment
         }
         '?' => {
@@ -503,6 +515,11 @@ fn lex_inside_filter(l: &mut Lexer) -> State {
         '@' => {
             l.next();
             l.emit(TokenType::Current);
+            State::LexSegment
+        }
+        '#' => {
+            l.next();
+            l.emit(TokenType::Key);
             State::LexSegment
         }
         '.' => State::LexSegment,
