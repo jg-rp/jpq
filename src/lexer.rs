@@ -108,6 +108,13 @@ enum State {
     LexInsideDoubleQuotedFilterString,
 }
 
+enum StringTokenType {
+    Single,
+    Double,
+    SingleKey,
+    DoubleKey,
+}
+
 /// A lexer for JSONPath expressions.
 struct Lexer<'q> {
     query: &'q str,
@@ -146,16 +153,26 @@ impl<'q> Lexer<'q> {
                 State::LexInsideBracketedSegment => state = lex_inside_bracketed_segment(self),
                 State::LexInsideFilter => state = lex_inside_filter(self),
                 State::LexInsideSingleQuotedString => {
-                    state = lex_string(self, '\'', State::LexInsideBracketedSegment)
+                    state = lex_string(
+                        self,
+                        '\'',
+                        State::LexInsideBracketedSegment,
+                        StringTokenType::Single,
+                    )
                 }
                 State::LexInsideDoubleQuotedString => {
-                    state = lex_string(self, '"', State::LexInsideBracketedSegment)
+                    state = lex_string(
+                        self,
+                        '"',
+                        State::LexInsideBracketedSegment,
+                        StringTokenType::Double,
+                    )
                 }
                 State::LexInsideSingleQuotedFilterString => {
-                    state = lex_string(self, '\'', State::LexInsideFilter)
+                    state = lex_string(self, '\'', State::LexInsideFilter, StringTokenType::Single)
                 }
                 State::LexInsideDoubleQuotedFilterString => {
-                    state = lex_string(self, '"', State::LexInsideFilter)
+                    state = lex_string(self, '"', State::LexInsideFilter, StringTokenType::Single)
                 }
             }
         }
@@ -323,7 +340,15 @@ fn lex_descendant_segment(l: &mut Lexer) -> State {
         l.emit(TokenType::Wild);
         State::LexSegment
     } else if l.accept('~') {
-        l.emit(TokenType::Keys);
+        if is_name_first(l.peek()) {
+            l.ignore(); // ~
+            l.accept_run(is_name_char);
+            l.emit(TokenType::Key {
+                value: l.boxed_value(),
+            });
+        } else {
+            l.emit(TokenType::Keys);
+        }
         State::LexSegment
     } else if l.accept('[') {
         l.emit(TokenType::LBracket);
@@ -354,7 +379,15 @@ fn lex_shorthand_selector(l: &mut Lexer) -> State {
         l.emit(TokenType::Wild);
         State::LexSegment
     } else if l.accept('~') {
-        l.emit(TokenType::Keys);
+        if is_name_first(l.peek()) {
+            l.ignore(); // ~
+            l.accept_run(is_name_char);
+            l.emit(TokenType::Key {
+                value: l.boxed_value(),
+            });
+        } else {
+            l.emit(TokenType::Keys);
+        }
         State::LexSegment
     } else if l.accept_if(is_name_first) {
         l.accept_run(is_name_char);
@@ -389,11 +422,7 @@ fn lex_inside_bracketed_segment(l: &mut Lexer) -> State {
             l.emit(TokenType::Wild);
             State::LexInsideBracketedSegment
         }
-        '~' => {
-            l.next();
-            l.emit(TokenType::Keys);
-            State::LexInsideBracketedSegment
-        }
+        '~' => lex_keys_selector(l),
         '?' => {
             l.next();
             l.emit(TokenType::Filter);
@@ -448,6 +477,42 @@ fn lex_inside_bracketed_segment(l: &mut Lexer) -> State {
                 );
                 l.error(msg)
             }
+        }
+    }
+}
+
+fn lex_keys_selector(l: &mut Lexer) -> State {
+    l.next();
+    match l.peek() {
+        '\'' => {
+            l.ignore(); // ~
+            l.next();
+            lex_string(
+                l,
+                '\'',
+                State::LexInsideBracketedSegment,
+                StringTokenType::SingleKey,
+            )
+        }
+        '"' => {
+            l.ignore(); // ~
+            l.next();
+            lex_string(
+                l,
+                '"',
+                State::LexInsideBracketedSegment,
+                StringTokenType::DoubleKey,
+            )
+        }
+        '?' => {
+            l.next();
+            l.emit(TokenType::KeysFilter);
+            l.filter_depth += 1;
+            State::LexInsideFilter
+        }
+        _ => {
+            l.emit(TokenType::Keys);
+            State::LexInsideBracketedSegment
         }
     }
 }
@@ -519,7 +584,7 @@ fn lex_inside_filter(l: &mut Lexer) -> State {
         }
         '#' => {
             l.next();
-            l.emit(TokenType::Key);
+            l.emit(TokenType::CurrentKey);
             State::LexSegment
         }
         '.' => State::LexSegment,
@@ -620,7 +685,12 @@ fn lex_inside_filter(l: &mut Lexer) -> State {
     }
 }
 
-fn lex_string(l: &mut Lexer, quote: char, next_state: State) -> State {
+fn lex_string(
+    l: &mut Lexer,
+    quote: char,
+    next_state: State,
+    string_kind: StringTokenType,
+) -> State {
     l.ignore(); // ignore open quote
 
     if l.peek() == EOQ {
@@ -641,14 +711,19 @@ fn lex_string(l: &mut Lexer, quote: char, next_state: State) -> State {
             }
             ch => {
                 if ch == quote {
-                    l.emit(match quote {
-                        '\'' => TokenType::SingleQuoteString {
+                    l.emit(match string_kind {
+                        StringTokenType::Single => TokenType::SingleQuoteString {
                             value: l.boxed_value(),
                         },
-                        '"' => TokenType::DoubleQuoteString {
+                        StringTokenType::Double => TokenType::DoubleQuoteString {
                             value: l.boxed_value(),
                         },
-                        _ => panic!("unexpected quote delimiter '{}'", quote),
+                        StringTokenType::SingleKey => TokenType::KeySingleQuoted {
+                            value: l.boxed_value(),
+                        },
+                        StringTokenType::DoubleKey => TokenType::KeyDoubleQuoted {
+                            value: l.boxed_value(),
+                        },
                     });
                     l.next();
                     l.ignore(); // ignore closing quote

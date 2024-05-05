@@ -87,6 +87,7 @@ impl TokenStream {
 pub struct Parser {
     pub index_range: RangeInclusive<i64>,
     pub function_types: HashMap<String, FunctionSignature>,
+    pub strict: bool,
 }
 
 impl Default for Parser {
@@ -100,6 +101,7 @@ impl Parser {
         Parser {
             index_range: ((-2_i64).pow(53) + 1..=2_i64.pow(53) - 1),
             function_types: standard_functions(),
+            strict: true,
         }
     }
 
@@ -158,7 +160,7 @@ impl Parser {
                         selectors,
                     });
                 }
-                LBracket | Name { .. } | Wild | Keys => {
+                LBracket | Name { .. } | Wild | Keys | Key { .. } => {
                     let token = (*it.peek()).clone();
                     let selectors = self.parse_selectors(it)?;
                     segments.push(Segment::Child {
@@ -188,11 +190,23 @@ impl Parser {
                     name,
                 }])
             }
+            Token {
+                kind: Key { value },
+                span,
+            } => {
+                // TODO: error if not strict
+                let name = unescape_string(value, span)?;
+                let token = it.next();
+                Ok(vec![Selector::Key {
+                    span: token.span,
+                    name,
+                }])
+            }
             Token { kind: Wild, .. } => Ok(vec![Selector::Wild {
                 span: it.next().span,
             }]),
             Token { kind: Keys, .. } => Ok(vec![Selector::Keys {
-                span: it.next().span,
+                span: it.next().span, // TODO: error if not strict
             }]),
             Token { kind: LBracket, .. } => self.parse_bracketed(it),
             _ => Ok(Vec::new()),
@@ -244,16 +258,48 @@ impl Parser {
                         name,
                     });
                 }
+                Token {
+                    kind: KeyDoubleQuoted { value },
+                    span,
+                } => {
+                    // TODO: error if not strict
+                    let name = unescape_string(value, span)?;
+                    let token = it.next();
+                    selectors.push(Selector::Key {
+                        span: token.span,
+                        name,
+                    });
+                }
+                Token {
+                    kind: KeySingleQuoted { value },
+                    span,
+                } => {
+                    // TODO: error if not strict
+                    let name = unescape_string(&value.replace("\\'", "'"), span)?;
+                    let token = it.next();
+                    selectors.push(Selector::Key {
+                        span: token.span,
+                        name,
+                    });
+                }
                 Token { kind: Wild, .. } => {
                     let token = it.next();
                     selectors.push(Selector::Wild { span: token.span });
                 }
                 Token { kind: Keys, .. } => {
+                    // TODO: error if not strict
                     let token = it.next();
                     selectors.push(Selector::Keys { span: token.span });
                 }
                 Token { kind: Filter, .. } => {
-                    let selector = self.parse_filter(it)?;
+                    let selector = self.parse_filter(it, false)?;
+                    selectors.push(selector);
+                }
+                Token {
+                    kind: KeysFilter, ..
+                } => {
+                    // TODO: error if not strict
+                    let selector = self.parse_filter(it, true)?;
                     selectors.push(selector);
                 }
                 Token { kind: Eoq, .. } => {
@@ -381,10 +427,16 @@ impl Parser {
         }
     }
 
-    fn parse_filter(&self, it: &mut TokenStream) -> Result<Selector, JSONPathError> {
+    fn parse_filter(&self, it: &mut TokenStream, keys: bool) -> Result<Selector, JSONPathError> {
         #[cfg(debug_assertions)]
         debug_assert!(
-            matches!(it.peek(), Token { kind: Filter, .. }),
+            matches!(
+                it.peek(),
+                Token {
+                    kind: Filter | KeysFilter,
+                    ..
+                }
+            ),
             "expected a filter"
         );
 
@@ -418,10 +470,16 @@ impl Parser {
             _ => (),
         }
 
-        Ok(Selector::Filter {
-            span: token.span,
-            expression: Box::new(expr),
-        })
+        match keys {
+            true => Ok(Selector::KeysFilter {
+                span: token.span,
+                expression: Box::new(expr),
+            }),
+            false => Ok(Selector::Filter {
+                span: token.span,
+                expression: Box::new(expr),
+            }),
+        }
     }
 
     fn parse_not_expression(
@@ -673,9 +731,12 @@ impl Parser {
             }
             Token { kind: LParen, .. } => self.parse_grouped_expression(it),
             Token { kind: Not, .. } => self.parse_not_expression(it),
-            Token { kind: Key, .. } => {
+            Token {
+                kind: CurrentKey, ..
+            } => {
+                // TODO: error if not strict
                 let token = it.next();
-                Ok(FilterExpression::Key { span: token.span })
+                Ok(FilterExpression::CurrentKey { span: token.span })
             }
             Token { kind, span } => Err(JSONPathError::syntax(
                 format!("expected a filter expression, found {}", kind),
@@ -886,7 +947,7 @@ impl Parser {
         }
 
         match expr {
-            FilterExpression::Key { .. } => true,
+            FilterExpression::CurrentKey { .. } => true,
             FilterExpression::RelativeQuery { query, .. }
             | FilterExpression::RootQuery { query, .. } => {
                 // singular queries will be coerced to a value

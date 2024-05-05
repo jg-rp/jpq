@@ -13,11 +13,13 @@ pub struct Env {
 
 #[pymethods]
 impl Env {
+    // TODO: Pass options to Env::new, like `strict`, `index_range` and any other options that might crop up
     #[new]
     pub fn new<'py>(function_register: &Bound<'py, PyDict>, nothing: &Bound<'py, PyAny>) -> Self {
         let mut parser = Parser {
             index_range: ((-2_i64).pow(53) + 1..=2_i64.pow(53) - 1), // TODO: get from py env
             function_types: HashMap::new(),
+            strict: false, // TODO: get from py env
         };
 
         // Derive function extension signatures from the function register
@@ -28,27 +30,35 @@ impl Env {
 
             let params = v
                 .getattr("arg_types")
-                .expect(&format!(
-                    "expected an `args_type` attribute on filter function `{}`",
-                    k
-                ))
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "expected an `args_type` attribute on filter function `{}`",
+                        k
+                    )
+                })
                 .extract()
-                .expect(&format!(
+                .unwrap_or_else(|_| {
+                    panic!(
                     "expected `args_type` to be a list of `ExpressionType` on filter function `{}`",
                     k
-                ));
+                )
+                });
 
             let returns = v
                 .getattr("return_type")
-                .expect(&format!(
-                    "expected a `return_type` attribute on filter function `{}`",
-                    k
-                ))
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "expected a `return_type` attribute on filter function `{}`",
+                        k
+                    )
+                })
                 .extract()
-                .expect(&format!(
-                    "expected `return_type` to be of `ExpressionType` on filter function `{}`",
-                    k
-                ));
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "expected `return_type` to be of `ExpressionType` on filter function `{}`",
+                        k
+                    )
+                });
 
             parser.add_function(&name, params, returns)
         }

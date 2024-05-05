@@ -58,7 +58,7 @@ pub enum FilterExpression {
         name: String,
         args: Vec<FilterExpression>,
     },
-    Key {
+    CurrentKey {
         span: (usize, usize),
     },
 }
@@ -186,7 +186,7 @@ impl FilterExpression {
             | FilterExpression::RelativeQuery { span, .. }
             | FilterExpression::RootQuery { span, .. }
             | FilterExpression::Function { span, .. }
-            | FilterExpression::Key { span } => *span,
+            | FilterExpression::CurrentKey { span } => *span,
         }
     }
 
@@ -295,7 +295,7 @@ impl FilterExpression {
                     _ => Ok(Object(rv)),
                 }
             }
-            Key { .. } => {
+            CurrentKey { .. } => {
                 if let Some(key) = &context.current_key {
                     Ok(Object(key.clone()))
                 } else {
@@ -394,7 +394,7 @@ impl fmt::Display for FilterExpression {
                         .join(", ")
                 )
             }
-            Key { .. } => f.write_str("#"),
+            CurrentKey { .. } => f.write_str("#"),
         }
     }
 }
@@ -432,7 +432,7 @@ impl FilterExpression {
             Function { .. } => {
                 format!("<jpq.FilterExpression.Function `{}`>", self)
             }
-            Key { .. } => "<jpq.FilterExpression.Key>".to_string(),
+            CurrentKey { .. } => "<jpq.FilterExpression.Key>".to_string(),
         }
     }
 

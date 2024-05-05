@@ -9,11 +9,15 @@ pub enum TokenType {
 
     Colon,
     Comma,
+    CurrentKey, // non-standard, `#`
     DoubleDot,
     Filter,
     Index { value: Box<str> },
-    Key,  // non-standard
-    Keys, // non-standard
+    Key { value: Box<str> }, // non-standard, shorthand key selector `~<name>`
+    KeyDoubleQuoted { value: Box<str> }, // non-standard, `~"<name>"`
+    KeySingleQuoted { value: Box<str> }, // non-standard, `~'<name>'`
+    Keys,                    // non-standard, `~`
+    KeysFilter,              // non-standard, `~?`
     LBracket,
     Name { value: Box<str> },
     RBracket,
@@ -50,11 +54,15 @@ impl fmt::Display for TokenType {
             Error { msg } => write!(f, "error: {}", *msg),
             Colon => f.write_str("`;`"),
             Comma => f.write_str("`,`"),
+            CurrentKey => f.write_str("`#`"),
             DoubleDot => f.write_str("`..`"),
             Filter => f.write_str("`?`"),
             Index { value } => write!(f, "`{}`", *value),
-            Key => f.write_str("`#`"),
+            Key { value } => write!(f, "`~{}`", *value),
+            KeyDoubleQuoted { value } => write!(f, "`{}`", *value),
+            KeySingleQuoted { value } => write!(f, "`{}`", *value),
             Keys => f.write_str("`~`"),
+            KeysFilter => f.write_str("`~?`"),
             LBracket => f.write_str("`[`"),
             Name { value } => write!(f, "`{}`", *value),
             RBracket => f.write_str("`]`"),

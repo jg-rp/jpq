@@ -31,8 +31,16 @@ pub enum Selector {
         span: (usize, usize),
         expression: Box<FilterExpression>,
     },
+    Key {
+        span: (usize, usize),
+        name: String,
+    },
     Keys {
         span: (usize, usize),
+    },
+    KeysFilter {
+        span: (usize, usize),
+        expression: Box<FilterExpression>,
     },
 }
 
@@ -113,10 +121,37 @@ impl Selector {
                     }
                 }
             }
+            Selector::Key { name, .. } => {
+                if let Ok(_val) = value.get_item(name) {
+                    // TODO: escape `'`
+                    let py_name = name.to_object(node.0.py());
+                    nodes.push((
+                        py_name.bind(node.0.py()).clone(),
+                        format!("{}[~'{}']", node.1, name),
+                    ));
+                }
+            }
             Selector::Keys { .. } => {
                 if let Ok(dict) = value.downcast::<PyDict>() {
-                    for (i, (key, _val)) in dict.iter().enumerate() {
-                        nodes.push((key, format!("{}[~][{}]", node.1, i)));
+                    for (key, _val) in dict.iter() {
+                        // TODO: escape `'`
+                        nodes.push((key.clone(), format!("{}[~'{}']", node.1, key)));
+                    }
+                }
+            }
+            Selector::KeysFilter { expression, .. } => {
+                if let Ok(dict) = value.downcast::<PyDict>() {
+                    for (key, val) in dict.iter() {
+                        let filter_context = FilterContext {
+                            env: context.env,
+                            root: context.root.clone(),
+                            current: val.clone(),
+                            current_key: Some(key.clone()),
+                        };
+                        if is_truthy(&expression.evaluate(&filter_context)?) {
+                            // TODO: escape `'`
+                            nodes.push((key.clone(), format!("{}[~'{}']", node.1, key)));
+                        }
                     }
                 }
             }
@@ -203,7 +238,9 @@ impl Selector {
             Selector::Slice { .. } => format!("<jpq.Selector.Slice `{}`>", self),
             Selector::Wild { .. } => format!("<jpq.Selector.Wild `{}`>", self),
             Selector::Filter { .. } => format!("<jpq.Selector.Filter `{}`>", self),
+            Selector::Key { .. } => format!("<jpq.Selector.Key `{}`>", self),
             Selector::Keys { .. } => format!("<jpq.Selector.Keys `{}`>", self),
+            Selector::KeysFilter { .. } => format!("<jpq.Selector.KeysFilter `{}`>", self),
         }
     }
 
@@ -236,7 +273,9 @@ impl fmt::Display for Selector {
             }
             Selector::Wild { .. } => f.write_char('*'),
             Selector::Filter { expression, .. } => write!(f, "?{expression}"),
+            Selector::Key { name, .. } => write!(f, "~'{name}'"), // TODO: escape `'`
             Selector::Keys { .. } => f.write_char('~'),
+            Selector::KeysFilter { expression, .. } => write!(f, "~?{expression}"),
         }
     }
 }
