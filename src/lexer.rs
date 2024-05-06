@@ -108,7 +108,7 @@ enum State {
     LexInsideDoubleQuotedFilterString,
 }
 
-enum StringTokenType {
+enum StringType {
     Single,
     Double,
     SingleKey,
@@ -157,7 +157,7 @@ impl<'q> Lexer<'q> {
                         self,
                         '\'',
                         State::LexInsideBracketedSegment,
-                        StringTokenType::Single,
+                        StringType::Single,
                     )
                 }
                 State::LexInsideDoubleQuotedString => {
@@ -165,14 +165,14 @@ impl<'q> Lexer<'q> {
                         self,
                         '"',
                         State::LexInsideBracketedSegment,
-                        StringTokenType::Double,
+                        StringType::Double,
                     )
                 }
                 State::LexInsideSingleQuotedFilterString => {
-                    state = lex_string(self, '\'', State::LexInsideFilter, StringTokenType::Single)
+                    state = lex_string(self, '\'', State::LexInsideFilter, StringType::Single)
                 }
                 State::LexInsideDoubleQuotedFilterString => {
-                    state = lex_string(self, '"', State::LexInsideFilter, StringTokenType::Single)
+                    state = lex_string(self, '"', State::LexInsideFilter, StringType::Single)
                 }
             }
         }
@@ -186,7 +186,7 @@ impl<'q> Lexer<'q> {
     fn value(&self) -> &str {
         self.query
             .get(self.start..self.pos)
-            .expect("lexer error: slice out of bounds or not on codepoint boundary")
+            .expect("lexer error: slice out of bounds or not on code point boundary")
     }
 
     fn boxed_value(&self) -> Box<str> {
@@ -335,21 +335,12 @@ fn lex_segment(l: &mut Lexer) -> State {
 }
 
 fn lex_descendant_segment(l: &mut Lexer) -> State {
-    // NOTE: leading whitespace is not allowed
+    // leading whitespace is not allowed
     if l.accept('*') {
         l.emit(TokenType::Wild);
         State::LexSegment
     } else if l.accept('~') {
-        if is_name_first(l.peek()) {
-            l.ignore(); // ~
-            l.accept_run(is_name_char);
-            l.emit(TokenType::Key {
-                value: l.boxed_value(),
-            });
-        } else {
-            l.emit(TokenType::Keys);
-        }
-        State::LexSegment
+        lex_shorthand_keys_selector(l)
     } else if l.accept('[') {
         l.emit(TokenType::LBracket);
         State::LexInsideBracketedSegment
@@ -379,16 +370,7 @@ fn lex_shorthand_selector(l: &mut Lexer) -> State {
         l.emit(TokenType::Wild);
         State::LexSegment
     } else if l.accept('~') {
-        if is_name_first(l.peek()) {
-            l.ignore(); // ~
-            l.accept_run(is_name_char);
-            l.emit(TokenType::Key {
-                value: l.boxed_value(),
-            });
-        } else {
-            l.emit(TokenType::Keys);
-        }
-        State::LexSegment
+        lex_shorthand_keys_selector(l)
     } else if l.accept_if(is_name_first) {
         l.accept_run(is_name_char);
         l.emit(TokenType::Name {
@@ -481,6 +463,19 @@ fn lex_inside_bracketed_segment(l: &mut Lexer) -> State {
     }
 }
 
+fn lex_shorthand_keys_selector(l: &mut Lexer) -> State {
+    if is_name_first(l.peek()) {
+        l.ignore(); // ~
+        l.accept_run(is_name_char);
+        l.emit(TokenType::Key {
+            value: l.boxed_value(),
+        });
+    } else {
+        l.emit(TokenType::Keys);
+    }
+    State::LexSegment
+}
+
 fn lex_keys_selector(l: &mut Lexer) -> State {
     l.next();
     match l.peek() {
@@ -491,7 +486,7 @@ fn lex_keys_selector(l: &mut Lexer) -> State {
                 l,
                 '\'',
                 State::LexInsideBracketedSegment,
-                StringTokenType::SingleKey,
+                StringType::SingleKey,
             )
         }
         '"' => {
@@ -501,7 +496,7 @@ fn lex_keys_selector(l: &mut Lexer) -> State {
                 l,
                 '"',
                 State::LexInsideBracketedSegment,
-                StringTokenType::DoubleKey,
+                StringType::DoubleKey,
             )
         }
         '?' => {
@@ -685,16 +680,11 @@ fn lex_inside_filter(l: &mut Lexer) -> State {
     }
 }
 
-fn lex_string(
-    l: &mut Lexer,
-    quote: char,
-    next_state: State,
-    string_kind: StringTokenType,
-) -> State {
+fn lex_string(l: &mut Lexer, quote: char, next_state: State, string_kind: StringType) -> State {
     l.ignore(); // ignore open quote
 
     if l.peek() == EOQ {
-        return l.error("unexpected enf of query or null byte".to_string());
+        return l.error("unexpected end of query or null byte".to_string());
     }
 
     loop {
@@ -712,16 +702,16 @@ fn lex_string(
             ch => {
                 if ch == quote {
                     l.emit(match string_kind {
-                        StringTokenType::Single => TokenType::SingleQuoteString {
+                        StringType::Single => TokenType::SingleQuoteString {
                             value: l.boxed_value(),
                         },
-                        StringTokenType::Double => TokenType::DoubleQuoteString {
+                        StringType::Double => TokenType::DoubleQuoteString {
                             value: l.boxed_value(),
                         },
-                        StringTokenType::SingleKey => TokenType::KeySingleQuoted {
+                        StringType::SingleKey => TokenType::KeySingleQuoted {
                             value: l.boxed_value(),
                         },
-                        StringTokenType::DoubleKey => TokenType::KeyDoubleQuoted {
+                        StringType::DoubleKey => TokenType::KeyDoubleQuoted {
                             value: l.boxed_value(),
                         },
                     });
