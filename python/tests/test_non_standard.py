@@ -4,8 +4,10 @@ import dataclasses
 import operator
 
 import pytest
+from jpq import JSONPathEnvironment
 from jpq import JSONValue
-from jpq import find
+
+ENV = JSONPathEnvironment(strict=False)
 
 
 @dataclasses.dataclass
@@ -118,7 +120,7 @@ TEST_CASES = [
 
 @pytest.mark.parametrize("case", TEST_CASES, ids=operator.attrgetter("description"))
 def test_non_standard(case: Case) -> None:
-    nodes = find(case.query, case.data)
+    nodes = ENV.find(case.query, case.data)
     assert nodes.values() == case.want
 
 
@@ -126,9 +128,9 @@ def test_location_of_keys_from_array() -> None:
     """Test the normalized path generated from the keys selector is a valid query."""
     query = "$.some.~"
     data = {"some": {"a": 1, "b": 2, "c": 3}}
-    nodes = find(query, data)
+    nodes = ENV.find(query, data)
     assert nodes.values() == ["a", "b", "c"]
-    assert find(nodes[0][1], data) == [("a", "$['some'][~'a']")]
+    assert ENV.find(nodes[0][1], data) == [("a", "$['some'][~'a']")]
 
 
 @dataclasses.dataclass
@@ -251,6 +253,6 @@ DOCS_TEST_CASES: list[DocsTestCase] = [
     "case", DOCS_TEST_CASES, ids=operator.attrgetter("description")
 )
 def test_docs_examples(case: DocsTestCase) -> None:
-    nodes = find(case.query, case.data)
+    nodes = ENV.find(case.query, case.data)
     assert nodes.values() == case.want
     assert nodes.paths() == case.want_paths

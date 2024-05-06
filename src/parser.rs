@@ -194,7 +194,12 @@ impl Parser {
                 kind: Key { value },
                 span,
             } => {
-                // TODO: error if not strict
+                if self.strict {
+                    return Err(JSONPathError::syntax(
+                        "key syntax (`~<name>`) is disabled in strict mode".to_string(),
+                        *span,
+                    ));
+                }
                 let name = unescape_string(value, span)?;
                 let token = it.next();
                 Ok(vec![Selector::Key {
@@ -205,9 +210,17 @@ impl Parser {
             Token { kind: Wild, .. } => Ok(vec![Selector::Wild {
                 span: it.next().span,
             }]),
-            Token { kind: Keys, .. } => Ok(vec![Selector::Keys {
-                span: it.next().span, // TODO: error if not strict
-            }]),
+            Token { kind: Keys, span } => {
+                if self.strict {
+                    return Err(JSONPathError::syntax(
+                        "keys syntax (`~`) is disabled in strict mode".to_string(),
+                        *span,
+                    ));
+                }
+                Ok(vec![Selector::Keys {
+                    span: it.next().span,
+                }])
+            }
             Token { kind: LBracket, .. } => self.parse_bracketed(it),
             _ => Ok(Vec::new()),
         }
@@ -262,7 +275,12 @@ impl Parser {
                     kind: KeyDoubleQuoted { value },
                     span,
                 } => {
-                    // TODO: error if not strict
+                    if self.strict {
+                        return Err(JSONPathError::syntax(
+                            "key syntax (`~\"<name>\"`) is disabled in strict mode".to_string(),
+                            *span,
+                        ));
+                    }
                     let name = unescape_string(value, span)?;
                     let token = it.next();
                     selectors.push(Selector::Key {
@@ -274,7 +292,12 @@ impl Parser {
                     kind: KeySingleQuoted { value },
                     span,
                 } => {
-                    // TODO: error if not strict
+                    if self.strict {
+                        return Err(JSONPathError::syntax(
+                            "key syntax (`~'<name>'`) is disabled in strict mode".to_string(),
+                            *span,
+                        ));
+                    }
                     let name = unescape_string(&value.replace("\\'", "'"), span)?;
                     let token = it.next();
                     selectors.push(Selector::Key {
@@ -286,8 +309,13 @@ impl Parser {
                     let token = it.next();
                     selectors.push(Selector::Wild { span: token.span });
                 }
-                Token { kind: Keys, .. } => {
-                    // TODO: error if not strict
+                Token { kind: Keys, span } => {
+                    if self.strict {
+                        return Err(JSONPathError::syntax(
+                            "keys syntax (`~`) is disabled in strict mode".to_string(),
+                            *span,
+                        ));
+                    }
                     let token = it.next();
                     selectors.push(Selector::Keys { span: token.span });
                 }
@@ -296,9 +324,15 @@ impl Parser {
                     selectors.push(selector);
                 }
                 Token {
-                    kind: KeysFilter, ..
+                    kind: KeysFilter,
+                    span,
                 } => {
-                    // TODO: error if not strict
+                    if self.strict {
+                        return Err(JSONPathError::syntax(
+                            "keys filter syntax (`~?`) is disabled in strict mode".to_string(),
+                            *span,
+                        ));
+                    }
                     let selector = self.parse_filter(it, true)?;
                     selectors.push(selector);
                 }
@@ -732,9 +766,15 @@ impl Parser {
             Token { kind: LParen, .. } => self.parse_grouped_expression(it),
             Token { kind: Not, .. } => self.parse_not_expression(it),
             Token {
-                kind: CurrentKey, ..
+                kind: CurrentKey,
+                span,
             } => {
-                // TODO: error if not strict
+                if self.strict {
+                    return Err(JSONPathError::syntax(
+                        "current key syntax (`#`) is disabled in strict mode".to_string(),
+                        *span,
+                    ));
+                }
                 let token = it.next();
                 Ok(FilterExpression::CurrentKey { span: token.span })
             }
