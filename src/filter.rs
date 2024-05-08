@@ -58,6 +58,9 @@ pub enum FilterExpression {
         name: String,
         args: Vec<FilterExpression>,
     },
+    CurrentKey {
+        span: (usize, usize),
+    },
 }
 
 impl<'py> pyo3::FromPyObject<'py> for Box<FilterExpression> {
@@ -182,7 +185,8 @@ impl FilterExpression {
             | FilterExpression::Comparison { span, .. }
             | FilterExpression::RelativeQuery { span, .. }
             | FilterExpression::RootQuery { span, .. }
-            | FilterExpression::Function { span, .. } => *span,
+            | FilterExpression::Function { span, .. }
+            | FilterExpression::CurrentKey { span } => *span,
         }
     }
 
@@ -291,6 +295,13 @@ impl FilterExpression {
                     _ => Ok(Object(rv)),
                 }
             }
+            CurrentKey { .. } => {
+                if let Some(key) = &context.current_key {
+                    Ok(Object(key.clone()))
+                } else {
+                    Ok(Nothing)
+                }
+            }
         }
     }
 }
@@ -383,6 +394,7 @@ impl fmt::Display for FilterExpression {
                         .join(", ")
                 )
             }
+            CurrentKey { .. } => f.write_str("#"),
         }
     }
 }
@@ -420,6 +432,7 @@ impl FilterExpression {
             Function { .. } => {
                 format!("<jpq.FilterExpression.Function `{}`>", self)
             }
+            CurrentKey { .. } => "<jpq.FilterExpression.Key>".to_string(),
         }
     }
 

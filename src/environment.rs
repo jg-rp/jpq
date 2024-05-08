@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use pyo3::{prelude::*, types::PyDict};
+use pyo3::{exceptions::PyValueError, prelude::*, types::PyDict};
 
 use crate::{JSONPathError, NodeList, Parser, Query};
 
@@ -14,50 +14,64 @@ pub struct Env {
 #[pymethods]
 impl Env {
     #[new]
-    pub fn new<'py>(function_register: &Bound<'py, PyDict>, nothing: &Bound<'py, PyAny>) -> Self {
+    #[pyo3(signature = (function_register, nothing, **options))]
+    pub fn new<'py>(
+        function_register: &Bound<'py, PyDict>,
+        nothing: &Bound<'py, PyAny>,
+        options: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<Self> {
         let mut parser = Parser {
             index_range: ((-2_i64).pow(53) + 1..=2_i64.pow(53) - 1), // TODO: get from py env
             function_types: HashMap::new(),
+            strict: option_strict(options)?,
         };
 
         // Derive function extension signatures from the function register
         for (k, v) in function_register.iter() {
-            let name = k
-                .extract::<String>()
-                .expect("expected a function register with string keys");
+            let name = k.extract::<String>().map_err(|_| {
+                PyValueError::new_err("expected a function register with string keys")
+            })?;
 
             let params = v
                 .getattr("arg_types")
-                .expect(&format!(
-                    "expected an `args_type` attribute on filter function `{}`",
-                    k
-                ))
+                .map_err(|_| {
+                    PyValueError::new_err(format!(
+                        "expected an `args_type` attribute on filter function `{}`",
+                        k
+                    ))
+                })?
                 .extract()
-                .expect(&format!(
-                    "expected `args_type` to be a list of `ExpressionType` on filter function `{}`",
-                    k
-                ));
+                .map_err(|_| {
+                    PyValueError::new_err(format!(
+                        "expected `args_type` to be a list of `ExpressionType`s on filter function `{}`",
+                        k
+                    ))
+                })?;
 
             let returns = v
                 .getattr("return_type")
-                .expect(&format!(
-                    "expected a `return_type` attribute on filter function `{}`",
-                    k
-                ))
+                .map_err(|_| {
+                    PyValueError::new_err(format!(
+                        "expected a `return_type` attribute on filter function `{}`",
+                        k
+                    ))
+                })?
                 .extract()
-                .expect(&format!(
-                    "expected `return_type` to be of `ExpressionType` on filter function `{}`",
-                    k
-                ));
+                .map_err(|_| {
+                    PyValueError::new_err(format!(
+                        "expected `return_type` to be of `ExpressionType` on filter function `{}`",
+                        k
+                    ))
+                })?;
 
             parser.add_function(&name, params, returns)
         }
 
-        Env {
+        Ok(Env {
             parser,
             function_register: function_register.clone().unbind(),
             nothing: nothing.clone().unbind(),
-        }
+        })
     }
 
     pub fn find<'py>(
@@ -79,5 +93,15 @@ impl Env {
         value: &Bound<'py, PyAny>,
     ) -> Result<NodeList<'py>, JSONPathError> {
         query.resolve(value, self)
+    }
+}
+
+fn option_strict(options: Option<&Bound<'_, PyDict>>) -> PyResult<bool> {
+    match options {
+        None => Ok(true),
+        Some(py_dict) => Ok(py_dict
+            .get_item("strict")?
+            .map(|val| val.is_truthy())
+            .unwrap_or(Ok(true))?),
     }
 }

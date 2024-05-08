@@ -24,17 +24,18 @@ JSONValue = list[Any] | dict[str, Any] | str | int | float | None | bool
 class JSONPathEnvironment:
     """JSONPath configuration."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, strict: bool = True) -> None:
         self._function_extensions: dict[str, FilterFunction] = {}
-        """A list of function extensions available to filters."""
+        """A map of function extensions available to the filter selector."""
 
+        self._strict = strict
         self.setup_function_extensions()
-        self._env = _Env(self._function_extensions, NOTHING)
+        self._env = _Env(self._function_extensions, NOTHING, strict=self._strict)
 
     def add_function_extension(self, name: str, ext: FilterFunction) -> None:
         """Add a JSONPath function extension."""
         self._function_extensions[name] = ext
-        self._env = _Env(self._function_extensions, NOTHING)
+        self._env = _Env(self._function_extensions, NOTHING, strict=self._strict)
 
     def setup_function_extensions(self) -> None:
         """Initialize function extensions."""

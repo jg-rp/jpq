@@ -180,7 +180,11 @@ NodeList = list[Node]
 
 class Env:
     def __init__(
-        self, function_register: dict[str, FilterFunction], nothing: object
+        self,
+        function_register: dict[str, FilterFunction],
+        nothing: object,
+        *,
+        strict: bool = True,
     ) -> None: ...
     def find(self, query: str, value: object) -> NodeList: ...
     def compile(self, query: str) -> Query: ...
@@ -188,6 +192,7 @@ class Env:
 
 class PyJSONPathError(Exception): ...
 class JSONPathTypeError(Exception): ...
+class JSONPathSyntaxError(Exception): ...
 
 class ExpressionType(Enum):
     """Function extension argument and return types."""
