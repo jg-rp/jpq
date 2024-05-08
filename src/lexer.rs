@@ -172,7 +172,7 @@ impl<'q> Lexer<'q> {
                     state = lex_string(self, '\'', State::LexInsideFilter, StringType::Single)
                 }
                 State::LexInsideDoubleQuotedFilterString => {
-                    state = lex_string(self, '"', State::LexInsideFilter, StringType::Single)
+                    state = lex_string(self, '"', State::LexInsideFilter, StringType::Double)
                 }
             }
         }
