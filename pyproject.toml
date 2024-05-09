@@ -15,6 +15,7 @@ classifiers = [
 ]
 
 dynamic = ["version"]
+dependencies = ["regex"]
 
 [project.optional-dependencies]
 tests = ["pytest"]
