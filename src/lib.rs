@@ -17,7 +17,7 @@ pub use query::Query;
 
 use pyo3::prelude::*;
 
-pub type Node<'py> = (Bound<'py, PyAny>, String);
+pub type Node<'py> = (Bound<'py, PyAny>, String); // TODO: do we need location? for "keys"?
 pub type NodeList<'py> = Vec<Node<'py>>;
 
 pub struct QueryContext<'py> {
