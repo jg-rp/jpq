@@ -70,7 +70,7 @@ class JSONPathQuery:
         return JSONPathNodeList(self._env.query(self._query, value))
 
 
-class JSONPathNodeList(list[tuple[object, str, int | str]]):
+class JSONPathNodeList(list[tuple[object, str, int | str | None]]):
     """A list of (value, location, key) tuples resulting from applying a JSONPath
     query to some data.
     """  # noqa: D205
@@ -83,7 +83,7 @@ class JSONPathNodeList(list[tuple[object, str, int | str]]):
         """Return a normalized path for each node in this node list."""
         return [node[1] for node in self]
 
-    def keys(self) -> list[int | str]:
+    def keys(self) -> list[int | str | None]:
         """Return a name or index for each node in this node list."""
         return [node[2] for node in self]
 
