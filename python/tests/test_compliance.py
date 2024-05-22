@@ -47,13 +47,7 @@ def test_compliance(case: Case) -> None:
         pytest.skip(reason=SKIP[case.name])  # no cov
 
     assert case.document is not None
-    rv = [
-        n
-        for n, _ in jpq.find(
-            case.selector,
-            case.document,
-        )
-    ]
+    rv = jpq.find(case.selector, case.document).values()
 
     if case.results is not None:
         assert rv in case.results

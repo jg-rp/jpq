@@ -175,7 +175,7 @@ class Query:
     @property
     def segments(self) -> list[Segment.Child | Segment.Recursive]: ...
 
-Node = tuple[object, str]
+Node = tuple[object, str, int | str]
 NodeList = list[Node]
 
 class Env:
