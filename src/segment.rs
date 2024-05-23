@@ -9,14 +9,9 @@ use crate::{JSONPathError, Node, NodeList, QueryContext};
 #[pyclass]
 #[derive(Debug, Clone)]
 pub enum Segment {
-    Child {
-        span: (usize, usize),
-        selectors: Vec<Selector>,
-    },
-    Recursive {
-        span: (usize, usize),
-        selectors: Vec<Selector>,
-    },
+    Child { selectors: Vec<Selector> },
+    Recursive { selectors: Vec<Selector> },
+    Eoi {},
 }
 
 impl Segment {
@@ -46,6 +41,7 @@ impl Segment {
                 }
                 Ok(_nodes)
             }
+            Segment::Eoi {} => Ok(nodes),
         }
     }
 }
@@ -97,6 +93,7 @@ impl fmt::Display for Segment {
                         .join(", ")
                 )
             }
+            Segment::Eoi {} => Ok(()),
         }
     }
 }
@@ -107,6 +104,7 @@ impl Segment {
         match self {
             Segment::Child { .. } => format!("<jpq.Segment.Child `{}`>", self),
             Segment::Recursive { .. } => format!("<jpq.Segment.Recursive `{}`>", self),
+            Segment::Eoi {} => String::from(""),
         }
     }
 

@@ -11,35 +11,25 @@ use crate::{FilterContext, JSONPathError, Node, NodeList, QueryContext};
 #[derive(Debug, Clone)]
 pub enum Selector {
     Name {
-        span: (usize, usize),
         name: String,
     },
     Index {
-        span: (usize, usize),
         index: i64,
     },
     Slice {
-        span: (usize, usize),
         start: Option<i64>,
         stop: Option<i64>,
         step: Option<i64>,
     },
-    Wild {
-        span: (usize, usize),
-    },
+    Wild {},
     Filter {
-        span: (usize, usize),
         expression: Box<FilterExpression>,
     },
     Key {
-        span: (usize, usize),
         name: String,
     },
-    Keys {
-        span: (usize, usize),
-    },
+    Keys {},
     KeysFilter {
-        span: (usize, usize),
         expression: Box<FilterExpression>,
     },
 }

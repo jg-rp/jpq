@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyDict};
 
-use crate::{JSONPathError, NodeList, Parser, Query};
+use crate::{JSONPathError, JSONPathParser, NodeList, Query};
 
 #[pyclass]
 pub struct Env {
-    pub parser: Parser,
+    pub parser: JSONPathParser,
     pub function_register: Py<PyDict>,
     pub nothing: PyObject,
 }
@@ -14,16 +14,14 @@ pub struct Env {
 #[pymethods]
 impl Env {
     #[new]
-    #[pyo3(signature = (function_register, nothing, **options))]
+    #[pyo3(signature = (function_register, nothing))]
     pub fn new<'py>(
         function_register: &Bound<'py, PyDict>,
         nothing: &Bound<'py, PyAny>,
-        options: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Self> {
-        let mut parser = Parser {
+        let mut parser = JSONPathParser {
             index_range: ((-2_i64).pow(53) + 1..=2_i64.pow(53) - 1), // TODO: get from py env
-            function_types: HashMap::new(),
-            strict: option_strict(options)?,
+            function_signatures: HashMap::new(),
         };
 
         // Derive function extension signatures from the function register
@@ -79,8 +77,7 @@ impl Env {
         query: &str,
         value: &Bound<'py, PyAny>,
     ) -> Result<NodeList<'py>, JSONPathError> {
-        let query = self.parser.parse(query)?;
-        query.resolve(value, self)
+        self.parser.parse(query)?.resolve(value, self)
     }
 
     pub fn compile(&self, query: &str) -> Result<Query, JSONPathError> {
@@ -96,12 +93,12 @@ impl Env {
     }
 }
 
-fn option_strict(options: Option<&Bound<'_, PyDict>>) -> PyResult<bool> {
-    match options {
-        None => Ok(true),
-        Some(py_dict) => Ok(py_dict
-            .get_item("strict")?
-            .map(|val| val.is_truthy())
-            .unwrap_or(Ok(true))?),
-    }
-}
+// fn option_strict(options: Option<&Bound<'_, PyDict>>) -> PyResult<bool> {
+//     match options {
+//         None => Ok(true),
+//         Some(py_dict) => Ok(py_dict
+//             .get_item("strict")?
+//             .map(|val| val.is_truthy())
+//             .unwrap_or(Ok(true))?),
+//     }
+// }
