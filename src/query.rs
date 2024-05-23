@@ -37,7 +37,7 @@ impl Query {
         value: &Bound<'py, PyAny>,
         env: &Env,
     ) -> Result<NodeList<'py>, JSONPathError> {
-        let root_node = vec![(value.clone(), "$".to_owned())];
+        let root_node = vec![(value.clone(), "$".to_owned(), value.py().None())];
         let context = QueryContext {
             env,
             root: value.clone(),

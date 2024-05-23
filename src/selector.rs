@@ -55,7 +55,11 @@ impl Selector {
         match self {
             Selector::Name { name, .. } => {
                 if let Ok(val) = value.get_item(name) {
-                    nodes.push((val, format!("{}['{}']", node.1, name)));
+                    nodes.push((
+                        val,
+                        format!("{}['{}']", node.1, name),
+                        name.into_py(value.py()),
+                    ));
                 }
             }
             Selector::Index { index, .. } => {
@@ -63,12 +67,18 @@ impl Selector {
                 if value.is_instance_of::<PyList>() {
                     if let Ok(val) = value.get_item(index) {
                         if *index < 0 {
+                            let i = value.len().unwrap() as i64 + index;
                             nodes.push((
                                 val,
-                                format!("{}[{}]", node.1, value.len().unwrap() as i64 + index), // TODO: try_from
+                                format!("{}[{}]", node.1, i), // TODO: try_from
+                                i.into_py(value.py()),
                             ));
                         } else {
-                            nodes.push((val, format!("{}[{}]", node.1, index)));
+                            nodes.push((
+                                val,
+                                format!("{}[{}]", node.1, index),
+                                index.into_py(value.py()),
+                            ));
                         }
                     }
                 }
@@ -78,18 +88,18 @@ impl Selector {
             } => {
                 if let Ok(list) = value.downcast::<PyList>() {
                     for (i, element) in slice(list, *start, *stop, *step) {
-                        nodes.push((element, format!("{}[{}]", node.1, i)))
+                        nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(list.py())))
                     }
                 }
             }
             Selector::Wild { .. } => {
                 if let Ok(list) = value.downcast::<PyList>() {
                     for (i, element) in list.iter().enumerate() {
-                        nodes.push((element, format!("{}[{}]", node.1, i)));
+                        nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(list.py())));
                     }
                 } else if let Ok(dict) = value.downcast::<PyDict>() {
                     for (key, val) in dict.iter() {
-                        nodes.push((val, format!("{}['{}']", node.1, key)));
+                        nodes.push((val, format!("{}['{}']", node.1, key), key.unbind()));
                     }
                 }
             }
@@ -104,7 +114,11 @@ impl Selector {
                             current_key: Some(py_i.bind(node.0.py()).clone()),
                         };
                         if is_truthy(&expression.evaluate(&filter_context)?) {
-                            nodes.push((element, format!("{}[{}]", node.1, i)));
+                            nodes.push((
+                                element,
+                                format!("{}[{}]", node.1, i),
+                                i.into_py(list.py()),
+                            ));
                         }
                     }
                 } else if let Ok(dict) = value.downcast::<PyDict>() {
@@ -116,7 +130,7 @@ impl Selector {
                             current_key: Some(key.clone()),
                         };
                         if is_truthy(&expression.evaluate(&filter_context)?) {
-                            nodes.push((val, format!("{}['{}']", node.1, key)));
+                            nodes.push((val, format!("{}['{}']", node.1, key), key.unbind()));
                         }
                     }
                 }
@@ -128,6 +142,7 @@ impl Selector {
                     nodes.push((
                         py_name.bind(node.0.py()).clone(),
                         format!("{}[~'{}']", node.1, name),
+                        py_name,
                     ));
                 }
             }
@@ -135,7 +150,7 @@ impl Selector {
                 if let Ok(dict) = value.downcast::<PyDict>() {
                     for (key, _val) in dict.iter() {
                         // TODO: escape `'`
-                        nodes.push((key.clone(), format!("{}[~'{}']", node.1, key)));
+                        nodes.push((key.clone(), format!("{}[~'{}']", node.1, key), key.unbind()));
                     }
                 }
             }
@@ -150,7 +165,11 @@ impl Selector {
                         };
                         if is_truthy(&expression.evaluate(&filter_context)?) {
                             // TODO: escape `'`
-                            nodes.push((key.clone(), format!("{}[~'{}']", node.1, key)));
+                            nodes.push((
+                                key.clone(),
+                                format!("{}[~'{}']", node.1, key),
+                                key.unbind(),
+                            ));
                         }
                     }
                 }

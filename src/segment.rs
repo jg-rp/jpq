@@ -57,13 +57,13 @@ fn visit(node: Node<'_>) -> NodeList<'_> {
 
     if let Ok(list) = value.downcast::<PyList>() {
         for (i, element) in list.iter().enumerate() {
-            let _node = (element, format!("{}[{}]", loc, i));
+            let _node = (element, format!("{}[{}]", loc, i), i.into_py(value.py()));
             let children = visit(_node);
             nodes.extend(children)
         }
     } else if let Ok(dict) = value.downcast::<PyDict>() {
         for (key, val) in dict.iter() {
-            let _node = (val, format!("{}['{}']", loc, key));
+            let _node = (val, format!("{}['{}']", loc, key), key.unbind());
             let children = visit(_node);
             nodes.extend(children);
         }

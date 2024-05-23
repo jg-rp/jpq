@@ -130,7 +130,7 @@ def test_location_of_keys_from_array() -> None:
     data = {"some": {"a": 1, "b": 2, "c": 3}}
     nodes = ENV.find(query, data)
     assert nodes.values() == ["a", "b", "c"]
-    assert ENV.find(nodes[0][1], data) == [("a", "$['some'][~'a']")]
+    assert ENV.find(nodes[0][1], data) == [("a", "$['some'][~'a']", "a")]
 
 
 @dataclasses.dataclass
