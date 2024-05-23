@@ -14,14 +14,16 @@ pub struct Env {
 #[pymethods]
 impl Env {
     #[new]
-    #[pyo3(signature = (function_register, nothing))]
+    #[pyo3(signature = (function_register, nothing, **options))]
     pub fn new<'py>(
         function_register: &Bound<'py, PyDict>,
         nothing: &Bound<'py, PyAny>,
+        options: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Self> {
         let mut parser = JSONPathParser {
             index_range: ((-2_i64).pow(53) + 1..=2_i64.pow(53) - 1), // TODO: get from py env
             function_signatures: HashMap::new(),
+            strict: option_strict(options)?,
         };
 
         // Derive function extension signatures from the function register
@@ -93,12 +95,12 @@ impl Env {
     }
 }
 
-// fn option_strict(options: Option<&Bound<'_, PyDict>>) -> PyResult<bool> {
-//     match options {
-//         None => Ok(true),
-//         Some(py_dict) => Ok(py_dict
-//             .get_item("strict")?
-//             .map(|val| val.is_truthy())
-//             .unwrap_or(Ok(true))?),
-//     }
-// }
+fn option_strict(options: Option<&Bound<'_, PyDict>>) -> PyResult<bool> {
+    match options {
+        None => Ok(true),
+        Some(py_dict) => Ok(py_dict
+            .get_item("strict")?
+            .map(|val| val.is_truthy())
+            .unwrap_or(Ok(true))?),
+    }
+}

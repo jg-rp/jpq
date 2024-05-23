@@ -72,6 +72,7 @@ pub fn standard_functions() -> HashMap<String, FunctionSignature> {
 pub struct JSONPathParser {
     pub index_range: RangeInclusive<i64>,
     pub function_signatures: HashMap<String, FunctionSignature>,
+    pub strict: bool,
 }
 
 impl Default for JSONPathParser {
@@ -85,6 +86,7 @@ impl JSONPathParser {
         JSONPathParser {
             index_range: ((-2_i64).pow(53) + 1..=2_i64.pow(53) - 1),
             function_signatures: standard_functions(),
+            strict: true,
         }
     }
 
@@ -359,7 +361,7 @@ impl JSONPathParser {
                 }
                 Rule::exp => {
                     let exp_str = pair.as_str();
-                    if exp_str.contains("-") {
+                    if exp_str.contains('-') {
                         is_float = true;
                     }
                     n.push_str(exp_str);
@@ -370,7 +372,7 @@ impl JSONPathParser {
 
         if let Some(pair) = it.next() {
             let exp_str = pair.as_str();
-            if exp_str.contains("-") {
+            if exp_str.contains('-') {
                 is_float = true;
             }
             n.push_str(exp_str);
