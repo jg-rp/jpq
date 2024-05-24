@@ -17,47 +17,38 @@ pub enum JSONPathErrorType {
 pub struct JSONPathError {
     pub kind: JSONPathErrorType,
     pub msg: String,
-    pub span: (usize, usize),
 }
 
 impl JSONPathError {
-    pub fn new(error: JSONPathErrorType, msg: String, span: (usize, usize)) -> Self {
-        Self {
-            kind: error,
-            msg,
-            span,
-        }
+    pub fn new(error: JSONPathErrorType, msg: String) -> Self {
+        Self { kind: error, msg }
     }
 
-    pub fn syntax(msg: String, span: (usize, usize)) -> Self {
+    pub fn syntax(msg: String) -> Self {
         Self {
             kind: JSONPathErrorType::SyntaxError,
             msg,
-            span,
         }
     }
 
-    pub fn typ(msg: String, span: (usize, usize)) -> Self {
+    pub fn typ(msg: String) -> Self {
         Self {
             kind: JSONPathErrorType::TypeError,
             msg,
-            span,
         }
     }
 
-    pub fn name(msg: String, span: (usize, usize)) -> Self {
+    pub fn name(msg: String) -> Self {
         Self {
             kind: JSONPathErrorType::NameError,
             msg,
-            span,
         }
     }
 
-    pub fn ext(msg: String, span: (usize, usize)) -> Self {
+    pub fn ext(msg: String) -> Self {
         Self {
             kind: JSONPathErrorType::ExtError,
             msg,
-            span,
         }
     }
 }
@@ -115,6 +106,6 @@ impl std::convert::From<JSONPathError> for PyErr {
 
 impl fmt::Display for JSONPathError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{} ({}..{})", self.msg, self.span.0, self.span.1)
+        write!(f, "{}", self.msg)
     }
 }

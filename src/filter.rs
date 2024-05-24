@@ -8,59 +8,42 @@ use crate::{ExpressionType, FilterContext, JSONPathError, NodeList, Query};
 #[pyclass]
 #[derive(Debug, Clone)]
 pub enum FilterExpression {
-    True_ {
-        span: (usize, usize),
-    },
-    False_ {
-        span: (usize, usize),
-    },
-    Null {
-        span: (usize, usize),
-    },
+    True_ {},
+    False_ {},
+    Null {},
     StringLiteral {
-        span: (usize, usize),
         value: String,
     },
     Int {
-        span: (usize, usize),
         value: i64,
     },
     Float {
-        span: (usize, usize),
         value: f64,
     },
     Not {
-        span: (usize, usize),
         expression: Box<FilterExpression>,
     },
     Logical {
-        span: (usize, usize),
         left: Box<FilterExpression>,
-        operator: LogicalOp,
+        operator: LogicalOperator,
         right: Box<FilterExpression>,
     },
     Comparison {
-        span: (usize, usize),
         left: Box<FilterExpression>,
-        operator: ComparisonOp,
+        operator: ComparisonOperator,
         right: Box<FilterExpression>,
     },
     RelativeQuery {
-        span: (usize, usize),
         query: Box<Query>,
     },
     RootQuery {
-        span: (usize, usize),
         query: Box<Query>,
     },
     Function {
-        span: (usize, usize),
         name: String,
         args: Vec<FilterExpression>,
     },
-    CurrentKey {
-        span: (usize, usize),
-    },
+    CurrentKey {},
 }
 
 impl<'py> pyo3::FromPyObject<'py> for Box<FilterExpression> {
@@ -77,26 +60,26 @@ impl pyo3::IntoPy<pyo3::PyObject> for Box<FilterExpression> {
 
 #[pyclass]
 #[derive(Debug, Clone)]
-pub enum LogicalOp {
+pub enum LogicalOperator {
     And,
     Or,
 }
 
-impl fmt::Display for LogicalOp {
+impl fmt::Display for LogicalOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LogicalOp::And => f.write_str("&&"),
-            LogicalOp::Or => f.write_str("||"),
+            LogicalOperator::And => f.write_str("&&"),
+            LogicalOperator::Or => f.write_str("||"),
         }
     }
 }
 
 #[pymethods]
-impl LogicalOp {
+impl LogicalOperator {
     fn __repr__(&self) -> String {
         match self {
-            LogicalOp::And => format!("<jpq.LogicalOp.And `{}`>", self),
-            LogicalOp::Or => format!("<jpq.LogicalOp.Or `{}`>", self),
+            LogicalOperator::And => format!("<jpq.LogicalOp.And `{}`>", self),
+            LogicalOperator::Or => format!("<jpq.LogicalOp.Or `{}`>", self),
         }
     }
 
@@ -107,7 +90,7 @@ impl LogicalOp {
 
 #[pyclass]
 #[derive(Debug, Clone)]
-pub enum ComparisonOp {
+pub enum ComparisonOperator {
     Eq,
     Ne,
     Ge,
@@ -116,29 +99,29 @@ pub enum ComparisonOp {
     Lt,
 }
 
-impl fmt::Display for ComparisonOp {
+impl fmt::Display for ComparisonOperator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ComparisonOp::Eq => f.write_str("=="),
-            ComparisonOp::Ne => f.write_str("!="),
-            ComparisonOp::Ge => f.write_str(">="),
-            ComparisonOp::Gt => f.write_str(">"),
-            ComparisonOp::Le => f.write_str("<="),
-            ComparisonOp::Lt => f.write_str("<"),
+            ComparisonOperator::Eq => f.write_str("=="),
+            ComparisonOperator::Ne => f.write_str("!="),
+            ComparisonOperator::Ge => f.write_str(">="),
+            ComparisonOperator::Gt => f.write_str(">"),
+            ComparisonOperator::Le => f.write_str("<="),
+            ComparisonOperator::Lt => f.write_str("<"),
         }
     }
 }
 
 #[pymethods]
-impl ComparisonOp {
+impl ComparisonOperator {
     fn __repr__(&self) -> String {
         match self {
-            ComparisonOp::Eq => format!("<jpq.ComparisonOp.Eq `{}`>", self),
-            ComparisonOp::Ne => format!("<jpq.ComparisonOp.Ne `{}`>", self),
-            ComparisonOp::Ge => format!("<jpq.ComparisonOp.Ge `{}`>", self),
-            ComparisonOp::Gt => format!("<jpq.ComparisonOp.Gt `{}`>", self),
-            ComparisonOp::Le => format!("<jpq.ComparisonOp.Ler `{}`>", self),
-            ComparisonOp::Lt => format!("<jpq.ComparisonOp.Ltr `{}`>", self),
+            ComparisonOperator::Eq => format!("<jpq.ComparisonOp.Eq `{}`>", self),
+            ComparisonOperator::Ne => format!("<jpq.ComparisonOp.Ne `{}`>", self),
+            ComparisonOperator::Ge => format!("<jpq.ComparisonOp.Ge `{}`>", self),
+            ComparisonOperator::Gt => format!("<jpq.ComparisonOp.Gt `{}`>", self),
+            ComparisonOperator::Le => format!("<jpq.ComparisonOp.Ler `{}`>", self),
+            ComparisonOperator::Lt => format!("<jpq.ComparisonOp.Ltr `{}`>", self),
         }
     }
 
@@ -170,24 +153,6 @@ impl FilterExpression {
                 | FilterExpression::Int { .. }
                 | FilterExpression::Float { .. }
         )
-    }
-
-    pub fn span(&self) -> (usize, usize) {
-        match self {
-            FilterExpression::True_ { span, .. }
-            | FilterExpression::False_ { span, .. }
-            | FilterExpression::Null { span, .. }
-            | FilterExpression::StringLiteral { span, .. }
-            | FilterExpression::Int { span, .. }
-            | FilterExpression::Float { span, .. }
-            | FilterExpression::Not { span, .. }
-            | FilterExpression::Logical { span, .. }
-            | FilterExpression::Comparison { span, .. }
-            | FilterExpression::RelativeQuery { span, .. }
-            | FilterExpression::RootQuery { span, .. }
-            | FilterExpression::Function { span, .. }
-            | FilterExpression::CurrentKey { span } => *span,
-        }
     }
 
     pub fn evaluate<'py>(
@@ -244,28 +209,27 @@ impl FilterExpression {
             }
             RelativeQuery { query, .. } => Ok(Nodes(query.resolve(&context.current, context.env)?)),
             RootQuery { query, .. } => Ok(Nodes(query.resolve(&context.root, context.env)?)),
-            Function { name, args, span } => {
+            Function { name, args } => {
                 let obj = context
                     .env
                     .function_register
                     .bind(py)
                     .get_item(name)
                     .map_err(|_| {
-                        JSONPathError::name(
-                            format!("missing function definition for {}", name),
-                            *span,
-                        )
+                        JSONPathError::name(format!("missing function definition for {}", name))
                     })?
                     .ok_or_else(|| {
-                        JSONPathError::name(
-                            format!("missing function definition for {}", name),
-                            *span,
-                        )
+                        JSONPathError::name(format!("missing function definition for {}", name))
                     })?;
 
-                let sig = context.env.parser.function_types.get(name).ok_or_else(|| {
-                    JSONPathError::name(format!("missing function signature for {}", name), *span)
-                })?;
+                let sig = context
+                    .env
+                    .parser
+                    .function_signatures
+                    .get(name)
+                    .ok_or_else(|| {
+                        JSONPathError::name(format!("missing function signature for {}", name))
+                    })?;
 
                 let _args: Result<Vec<_>, _> = args
                     .iter()
@@ -284,14 +248,13 @@ impl FilterExpression {
 
                 let rv = obj
                     .call1(PyTuple::new_bound(py, _args?))
-                    .map_err(|err| JSONPathError::ext(err.to_string(), *span))?;
+                    .map_err(|err| JSONPathError::ext(err.to_string()))?;
 
                 match sig.return_type {
-                    ExpressionType::Nodes => {
-                        Ok(Nodes(rv.extract().map_err(|err| {
-                            JSONPathError::ext(err.to_string(), *span)
-                        })?))
-                    }
+                    ExpressionType::Nodes => Ok(Nodes(
+                        rv.extract()
+                            .map_err(|err| JSONPathError::ext(err.to_string()))?,
+                    )),
                     _ => Ok(Object(rv)),
                 }
             }
@@ -450,19 +413,23 @@ pub fn is_truthy(rv: &FilterExpressionResult) -> bool {
     }
 }
 
-fn logical(left: &FilterExpressionResult, op: &LogicalOp, right: &FilterExpressionResult) -> bool {
+fn logical(
+    left: &FilterExpressionResult,
+    op: &LogicalOperator,
+    right: &FilterExpressionResult,
+) -> bool {
     match op {
-        LogicalOp::And => is_truthy(left) && is_truthy(right),
-        LogicalOp::Or => is_truthy(left) || is_truthy(right),
+        LogicalOperator::And => is_truthy(left) && is_truthy(right),
+        LogicalOperator::Or => is_truthy(left) || is_truthy(right),
     }
 }
 
 fn compare(
     left: &FilterExpressionResult,
-    op: &ComparisonOp,
+    op: &ComparisonOperator,
     right: &FilterExpressionResult,
 ) -> bool {
-    use ComparisonOp::*;
+    use ComparisonOperator::*;
     match op {
         Eq => eq((left, right)),
         Ne => !eq((left, right)),

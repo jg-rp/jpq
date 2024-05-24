@@ -1,7 +1,6 @@
 pub mod environment;
 pub mod errors;
 pub mod filter;
-pub mod lexer;
 pub mod parser;
 pub mod query;
 pub mod segment;
@@ -12,12 +11,12 @@ use std::collections::HashMap;
 
 pub use errors::JSONPathError;
 pub use errors::JSONPathErrorType;
-pub use parser::Parser;
+pub use parser::JSONPathParser;
 pub use query::Query;
 
 use pyo3::prelude::*;
 
-// (value, location, key) tuple
+// (value, normalized path, key) tuple
 pub type Node<'py> = (Bound<'py, PyAny>, String, PyObject);
 pub type NodeList<'py> = Vec<Node<'py>>;
 
@@ -118,8 +117,8 @@ fn jpq_extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<ExpressionType>()?;
     m.add_class::<segment::Segment>()?;
     m.add_class::<selector::Selector>()?;
-    m.add_class::<filter::LogicalOp>()?;
-    m.add_class::<filter::ComparisonOp>()?;
+    m.add_class::<filter::LogicalOperator>()?;
+    m.add_class::<filter::ComparisonOperator>()?;
     m.add_class::<filter::FilterExpression>()?;
     m.add_class::<query::Query>()?;
     m.add_class::<environment::Env>()?;

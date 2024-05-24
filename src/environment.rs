@@ -2,11 +2,11 @@ use std::collections::HashMap;
 
 use pyo3::{exceptions::PyValueError, prelude::*, types::PyDict};
 
-use crate::{JSONPathError, NodeList, Parser, Query};
+use crate::{JSONPathError, JSONPathParser, NodeList, Query};
 
 #[pyclass]
 pub struct Env {
-    pub parser: Parser,
+    pub parser: JSONPathParser,
     pub function_register: Py<PyDict>,
     pub nothing: PyObject,
 }
@@ -20,9 +20,9 @@ impl Env {
         nothing: &Bound<'py, PyAny>,
         options: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Self> {
-        let mut parser = Parser {
+        let mut parser = JSONPathParser {
             index_range: ((-2_i64).pow(53) + 1..=2_i64.pow(53) - 1), // TODO: get from py env
-            function_types: HashMap::new(),
+            function_signatures: HashMap::new(),
             strict: option_strict(options)?,
         };
 
@@ -79,8 +79,7 @@ impl Env {
         query: &str,
         value: &Bound<'py, PyAny>,
     ) -> Result<NodeList<'py>, JSONPathError> {
-        let query = self.parser.parse(query)?;
-        query.resolve(value, self)
+        self.parser.parse(query)?.resolve(value, self)
     }
 
     pub fn compile(&self, query: &str) -> Result<Query, JSONPathError> {
