@@ -16,7 +16,7 @@ pub use query::Query;
 
 use pyo3::prelude::*;
 
-// (value, location, key) tuple
+// (value, normalized path, key) tuple
 pub type Node<'py> = (Bound<'py, PyAny>, String, PyObject);
 pub type NodeList<'py> = Vec<Node<'py>>;
 

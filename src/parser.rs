@@ -1,6 +1,6 @@
 //! A JSONPath parser using [pest].
 //!
-//! Refer to `jsonpath.pest` and the [pest book]
+//! Refer to `jsonpath.pest` and the [pest book].
 //!
 //! [pest]: https://pest.rs/
 //! [pest book]: https://pest.rs/book/

@@ -57,12 +57,8 @@ impl Selector {
                 if value.is_instance_of::<PyList>() {
                     if let Ok(val) = value.get_item(index) {
                         if *index < 0 {
-                            let i = value.len().unwrap() as i64 + index;
-                            nodes.push((
-                                val,
-                                format!("{}[{}]", node.1, i), // TODO: try_from
-                                i.into_py(value.py()),
-                            ));
+                            let i = value.len().unwrap() as i64 + index; // TODO: try_from
+                            nodes.push((val, format!("{}[{}]", node.1, i), i.into_py(value.py())));
                         } else {
                             nodes.push((
                                 val,
@@ -77,15 +73,17 @@ impl Selector {
                 start, stop, step, ..
             } => {
                 if let Ok(list) = value.downcast::<PyList>() {
+                    let py = list.py();
                     for (i, element) in slice(list, *start, *stop, *step) {
-                        nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(list.py())))
+                        nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(py)))
                     }
                 }
             }
             Selector::Wild { .. } => {
                 if let Ok(list) = value.downcast::<PyList>() {
+                    let py = list.py();
                     for (i, element) in list.iter().enumerate() {
-                        nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(list.py())));
+                        nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(py)));
                     }
                 } else if let Ok(dict) = value.downcast::<PyDict>() {
                     for (key, val) in dict.iter() {
@@ -95,6 +93,7 @@ impl Selector {
             }
             Selector::Filter { expression, .. } => {
                 if let Ok(list) = value.downcast::<PyList>() {
+                    let py = list.py();
                     for (i, element) in list.iter().enumerate() {
                         let py_i = i.to_object(node.0.py());
                         let filter_context = FilterContext {
@@ -104,11 +103,7 @@ impl Selector {
                             current_key: Some(py_i.bind(node.0.py()).clone()),
                         };
                         if is_truthy(&expression.evaluate(&filter_context)?) {
-                            nodes.push((
-                                element,
-                                format!("{}[{}]", node.1, i),
-                                i.into_py(list.py()),
-                            ));
+                            nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(py)));
                         }
                     }
                 } else if let Ok(dict) = value.downcast::<PyDict>() {
@@ -126,6 +121,7 @@ impl Selector {
                 }
             }
             Selector::Key { name, .. } => {
+                // Non-standard
                 if let Ok(_val) = value.get_item(name) {
                     // TODO: escape `'`
                     let py_name = name.to_object(node.0.py());
@@ -137,6 +133,7 @@ impl Selector {
                 }
             }
             Selector::Keys { .. } => {
+                // Non-standard
                 if let Ok(dict) = value.downcast::<PyDict>() {
                     for (key, _val) in dict.iter() {
                         // TODO: escape `'`
@@ -145,6 +142,7 @@ impl Selector {
                 }
             }
             Selector::KeysFilter { expression, .. } => {
+                // Non-standard
                 if let Ok(dict) = value.downcast::<PyDict>() {
                     for (key, val) in dict.iter() {
                         let filter_context = FilterContext {
