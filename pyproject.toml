@@ -119,5 +119,5 @@ force-single-line = true
 convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
-"python/jpq/__init__.py" = ["D104"]
+"python/jpq/__init__.py" = ["D104", "E402"]
 "python/tests/*" = ["D100", "D101", "D104", "D103"]

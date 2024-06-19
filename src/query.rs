@@ -2,10 +2,11 @@ use std::fmt;
 
 use pyo3::prelude::*;
 
+use crate::conslist::ConsList;
 use crate::environment::Env;
 use crate::segment::Segment;
 use crate::selector::Selector;
-use crate::{JSONPathError, NodeList, QueryContext};
+use crate::{Node, NodeList, QueryContext};
 
 #[pyclass]
 #[derive(Debug, Clone)]
@@ -32,12 +33,12 @@ impl Query {
     }
 
     // Apply this query to Python object `value` using the function register from `env`.
-    pub fn resolve<'py>(
-        &self,
-        value: &Bound<'py, PyAny>,
-        env: &Env,
-    ) -> Result<NodeList<'py>, JSONPathError> {
-        let root_node = vec![(value.clone(), "$".to_owned(), value.py().None())];
+    pub fn resolve<'py>(&self, value: &Bound<'py, PyAny>, env: &Env) -> NodeList {
+        let root_node = Node {
+            value: value.clone().unbind(),
+            location: ConsList::new(),
+        };
+
         let context = QueryContext {
             env,
             root: value.clone(),
@@ -45,7 +46,9 @@ impl Query {
 
         self.segments
             .iter()
-            .try_fold(root_node, |nodes, segment| segment.resolve(nodes, &context))
+            .fold(vec![root_node], |nodes, segment| {
+                segment.resolve(nodes, &context)
+            })
     }
 
     // Returns `true` if this query has no segments, or `false` otherwise.

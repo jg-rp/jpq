@@ -54,7 +54,7 @@ for query, data in compiled_queries:
 
 JUST_FIND_VALUES_STMT = """\
 for query, data in compiled_queries:
-    [node[0] for node in query.find(data)]"""
+    [node.value for node in query.find(data)]"""
 
 
 def benchmark(number: int = 100, best_of: int = 3) -> None:

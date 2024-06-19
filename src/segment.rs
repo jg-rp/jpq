@@ -3,8 +3,9 @@ use std::fmt;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
+use crate::node::{Location, PathElement, Value};
 use crate::selector::Selector;
-use crate::{JSONPathError, Node, NodeList, QueryContext};
+use crate::{NodeList, QueryContext};
 
 #[pyclass]
 #[derive(Debug, Clone)]
@@ -15,57 +16,82 @@ pub enum Segment {
 }
 
 impl Segment {
-    pub fn resolve<'py>(
-        &self,
-        nodes: NodeList<'py>,
-        context: &QueryContext,
-    ) -> Result<NodeList<'py>, JSONPathError> {
+    pub fn resolve<'py>(&self, nodes: NodeList, context: &QueryContext) -> NodeList {
         match self {
-            Segment::Child { selectors, .. } => {
-                let mut _nodes: NodeList = Vec::new();
-                for node in nodes.iter() {
-                    for selector in selectors {
-                        _nodes.extend(selector.resolve(node, context)?);
-                    }
-                }
-                Ok(_nodes)
-            }
-            Segment::Recursive { selectors, .. } => {
-                let mut _nodes: NodeList = Vec::new();
-                for node in nodes {
-                    for _node in visit(node).iter() {
-                        for selector in selectors {
-                            _nodes.extend(selector.resolve(_node, context)?);
-                        }
-                    }
-                }
-                Ok(_nodes)
-            }
-            Segment::Eoi {} => Ok(nodes),
-        }
-    }
-}
-
-fn visit(node: Node<'_>) -> NodeList<'_> {
-    let value = &node.0.clone();
-    let loc = node.1.to_owned();
-    let mut nodes: NodeList = vec![node.clone()];
-
-    if let Ok(list) = value.downcast::<PyList>() {
-        for (i, element) in list.iter().enumerate() {
-            let _node = (element, format!("{}[{}]", loc, i), i.into_py(value.py()));
-            let children = visit(_node);
-            nodes.extend(children)
-        }
-    } else if let Ok(dict) = value.downcast::<PyDict>() {
-        for (key, val) in dict.iter() {
-            let _node = (val, format!("{}['{}']", loc, key), key.unbind());
-            let children = visit(_node);
-            nodes.extend(children);
+            Segment::Child { selectors } => nodes
+                .into_iter()
+                .flat_map(|node| {
+                    selectors.iter().map(move |s| {
+                        s.resolve(node.value.bind(context.root.py()), &node.location, context)
+                    })
+                })
+                .flatten()
+                .collect(),
+            Segment::Recursive { selectors } => nodes
+                .into_iter()
+                .flat_map(move |node| {
+                    self.visit(
+                        node.value.bind(context.root.py()),
+                        node.location,
+                        selectors,
+                        context,
+                    )
+                })
+                .collect(),
+            Segment::Eoi {} => nodes,
         }
     }
 
-    nodes
+    fn visit<'py>(
+        &self,
+        value: &Value<'py>,
+        location: Location,
+        selectors: &Vec<Selector>,
+        context: &QueryContext,
+    ) -> NodeList {
+        let mut nodes: NodeList = selectors
+            .iter()
+            .flat_map(|s| s.resolve(value, &location, context))
+            .collect();
+
+        nodes.append(&mut self.descend(value, &location, selectors, context));
+        nodes
+    }
+
+    fn descend<'py>(
+        &self,
+        value: &Value<'py>,
+        location: &Location,
+        selectors: &Vec<Selector>,
+        context: &QueryContext,
+    ) -> NodeList {
+        if let Ok(list) = value.downcast::<PyList>() {
+            list.iter()
+                .enumerate()
+                .flat_map(|(i, v)| {
+                    self.visit(
+                        &v,
+                        location.append(PathElement::Index(i)),
+                        selectors,
+                        context,
+                    )
+                })
+                .collect()
+        } else if let Ok(dict) = value.downcast::<PyDict>() {
+            dict.iter()
+                .flat_map(|(k, v)| {
+                    self.visit(
+                        &v,
+                        location.append(PathElement::Name(k.extract().unwrap())),
+                        selectors,
+                        context,
+                    )
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+    }
 }
 
 impl fmt::Display for Segment {

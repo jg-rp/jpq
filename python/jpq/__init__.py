@@ -1,17 +1,18 @@
+from .jpq import ExpressionType
+from .jpq import JSONPathSyntaxError
+from .jpq import JSONPathTypeError
+from .jpq import Node
+from .jpq import PyJSONPathError
+
+NodeList = list[Node]
+
 from .env import JSONPathEnvironment
 from .env import JSONPathNodeList
 from .env import JSONPathQuery
 from .env import JSONValue
 from .filter_function import FilterFunction
-from .jpq import ExpressionType
-from .jpq import JSONPathSyntaxError
-from .jpq import JSONPathTypeError
-from .jpq import PyJSONPathError
 from .nothing import NOTHING
 from .nothing import Nothing
-
-Node = tuple[object, str]
-NodeList = list[Node]
 
 __all__ = (
     "Env",

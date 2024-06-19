@@ -1,6 +1,8 @@
+mod conslist;
 pub mod environment;
 pub mod errors;
 pub mod filter;
+mod node;
 pub mod parser;
 pub mod query;
 pub mod segment;
@@ -11,25 +13,16 @@ use std::collections::HashMap;
 
 pub use errors::JSONPathError;
 pub use errors::JSONPathErrorType;
+pub use node::Node;
+pub use node::NodeList;
 pub use parser::JSONPathParser;
 pub use query::Query;
 
 use pyo3::prelude::*;
 
-// (value, normalized path, key) tuple
-pub type Node<'py> = (Bound<'py, PyAny>, String, PyObject);
-pub type NodeList<'py> = Vec<Node<'py>>;
-
 pub struct QueryContext<'py> {
     env: &'py environment::Env,
     root: Bound<'py, PyAny>,
-}
-
-pub struct FilterContext<'py> {
-    env: &'py environment::Env,
-    root: Bound<'py, PyAny>,
-    current: Bound<'py, PyAny>,
-    current_key: Option<Bound<'py, PyAny>>,
 }
 
 #[pyclass]
@@ -122,5 +115,6 @@ fn jpq_extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<filter::FilterExpression>()?;
     m.add_class::<query::Query>()?;
     m.add_class::<environment::Env>()?;
+    m.add_class::<Node>()?;
     Ok(())
 }

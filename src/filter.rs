@@ -3,7 +3,8 @@ use std::fmt;
 use pyo3::prelude::*;
 use pyo3::types::{PyBool, PyFloat, PyInt, PyNone, PyString, PyTuple};
 
-use crate::{ExpressionType, FilterContext, JSONPathError, NodeList, Query};
+use crate::node::Value;
+use crate::{ExpressionType, NodeList, Query, QueryContext};
 
 #[pyclass]
 #[derive(Debug, Clone)]
@@ -43,7 +44,6 @@ pub enum FilterExpression {
         name: String,
         args: Vec<FilterExpression>,
     },
-    CurrentKey {},
 }
 
 impl<'py> pyo3::FromPyObject<'py> for Box<FilterExpression> {
@@ -120,8 +120,8 @@ impl ComparisonOperator {
             ComparisonOperator::Ne => format!("<jpq.ComparisonOp.Ne `{}`>", self),
             ComparisonOperator::Ge => format!("<jpq.ComparisonOp.Ge `{}`>", self),
             ComparisonOperator::Gt => format!("<jpq.ComparisonOp.Gt `{}`>", self),
-            ComparisonOperator::Le => format!("<jpq.ComparisonOp.Ler `{}`>", self),
-            ComparisonOperator::Lt => format!("<jpq.ComparisonOp.Ltr `{}`>", self),
+            ComparisonOperator::Le => format!("<jpq.ComparisonOp.Le `{}`>", self),
+            ComparisonOperator::Lt => format!("<jpq.ComparisonOp.Lt `{}`>", self),
         }
     }
 
@@ -132,7 +132,7 @@ impl ComparisonOperator {
 
 pub enum FilterExpressionResult<'py> {
     Object(Bound<'py, PyAny>),
-    Nodes(NodeList<'py>),
+    Nodes(NodeList),
     Nothing,
 }
 
@@ -157,87 +157,79 @@ impl FilterExpression {
 
     pub fn evaluate<'py>(
         &self,
-        context: &'py FilterContext,
-    ) -> Result<FilterExpressionResult<'py>, JSONPathError> {
+        current: &Value<'py>,
+        context: &QueryContext<'py>,
+    ) -> FilterExpressionResult<'py> {
         use FilterExpression::*;
         use FilterExpressionResult::*;
         let py = context.root.py();
         match self {
-            True_ { .. } => Ok(any_bool!(py, true)),
-            False_ { .. } => Ok(any_bool!(py, false)),
-            Null { .. } => Ok(Object(PyNone::get_bound(py).as_any().to_owned())),
+            True_ { .. } => any_bool!(py, true),
+            False_ { .. } => any_bool!(py, false),
+            Null { .. } => Object(PyNone::get_bound(py).as_any().to_owned()),
             FilterExpression::StringLiteral { value, .. } => {
-                Ok(Object(PyString::new_bound(py, value).as_any().to_owned()))
+                Object(PyString::new_bound(py, value).as_any().to_owned())
             }
-            Int { value, .. } => Ok(Object(value.to_object(py).bind(py).to_owned())),
-            Float { value, .. } => Ok(Object(value.to_object(py).bind(py).to_owned())),
-            Not { expression, .. } => Ok(any_bool!(py, !is_truthy(&expression.evaluate(context)?))),
+            Int { value, .. } => Object(value.to_object(py).bind(py).to_owned()),
+            Float { value, .. } => Object(value.to_object(py).bind(py).to_owned()),
+            Not { expression, .. } => {
+                any_bool!(py, !is_truthy(&expression.evaluate(current, context)))
+            }
             Logical {
                 left,
                 operator,
                 right,
                 ..
-            } => Ok(any_bool!(
+            } => any_bool!(
                 py,
                 logical(
-                    &left.evaluate(context)?,
+                    &left.evaluate(current, context),
                     operator,
-                    &right.evaluate(context)?,
+                    &right.evaluate(current, context),
                 )
-            )),
+            ),
             Comparison {
                 left,
                 operator,
                 right,
                 ..
             } => {
-                let mut _left = left.evaluate(context)?;
-                if let Nodes(nodes) = &_left {
-                    if nodes.len() == 1 {
-                        _left = Object(nodes.first().unwrap().0.clone());
-                    }
+                if compare(
+                    left.evaluate(current, context),
+                    operator,
+                    right.evaluate(current, context),
+                    py,
+                ) {
+                    any_bool!(py, true)
+                } else {
+                    any_bool!(py, false)
                 }
-
-                let mut _right = right.evaluate(context)?;
-                if let Nodes(nodes) = &_right {
-                    if nodes.len() == 1 {
-                        _right = Object(nodes.first().unwrap().0.clone());
-                    }
-                }
-
-                Ok(any_bool!(py, compare(&_left, operator, &_right)))
             }
-            RelativeQuery { query, .. } => Ok(Nodes(query.resolve(&context.current, context.env)?)),
-            RootQuery { query, .. } => Ok(Nodes(query.resolve(&context.root, context.env)?)),
+            RelativeQuery { query, .. } => Nodes(query.resolve(current, context.env)),
+            RootQuery { query, .. } => Nodes(query.resolve(&context.root, context.env)),
             Function { name, args } => {
                 let obj = context
                     .env
                     .function_register
                     .bind(py)
                     .get_item(name)
-                    .map_err(|_| {
-                        JSONPathError::name(format!("missing function definition for {}", name))
-                    })?
-                    .ok_or_else(|| {
-                        JSONPathError::name(format!("missing function definition for {}", name))
-                    })?;
+                    .expect(format!("missing function definition for {}", name).as_str())
+                    .expect(format!("missing function definition for {}", name).as_str());
 
                 let sig = context
                     .env
                     .parser
                     .function_signatures
                     .get(name)
-                    .ok_or_else(|| {
-                        JSONPathError::name(format!("missing function signature for {}", name))
-                    })?;
+                    .expect(format!("missing function signature for {}", name).as_str());
 
-                let _args: Result<Vec<_>, _> = args
+                let _args: Vec<Value> = args
                     .iter()
-                    .map(|ex| ex.evaluate(context))
+                    .map(|ex| ex.evaluate(current, context))
                     .enumerate()
                     .map(|(i, rv)| {
                         unpack_result(
-                            rv?,
+                            rv,
                             &sig.param_types,
                             i,
                             context.env.nothing.clone().bind(py),
@@ -247,22 +239,20 @@ impl FilterExpression {
                     .collect();
 
                 let rv = obj
-                    .call1(PyTuple::new_bound(py, _args?))
-                    .map_err(|err| JSONPathError::ext(err.to_string()))?;
+                    .call1(PyTuple::new_bound(py, _args))
+                    .expect(format!("unexpected error in function extension '{}'", name).as_str());
 
                 match sig.return_type {
-                    ExpressionType::Nodes => Ok(Nodes(
-                        rv.extract()
-                            .map_err(|err| JSONPathError::ext(err.to_string()))?,
-                    )),
-                    _ => Ok(Object(rv)),
-                }
-            }
-            CurrentKey { .. } => {
-                if let Some(key) = &context.current_key {
-                    Ok(Object(key.clone()))
-                } else {
-                    Ok(Nothing)
+                    ExpressionType::Nodes => Nodes(
+                        rv.extract().expect(
+                            format!(
+                                "expected a NodesType return value from function extension '{}'",
+                                name
+                            )
+                            .as_str(),
+                        ),
+                    ),
+                    _ => Object(rv),
                 }
             }
         }
@@ -275,27 +265,27 @@ fn unpack_result<'py>(
     index: usize,
     nothing: &Bound<'py, PyAny>,
     py: Python<'py>,
-) -> Result<Bound<'py, PyAny>, JSONPathError> {
+) -> Value<'py> {
     let arg_type = param_types.get(index).unwrap();
 
     match rv {
         FilterExpressionResult::Nodes(nodes) => {
             if !matches!(arg_type, ExpressionType::Nodes) {
                 match nodes.len() {
-                    0 => Ok(nothing.clone()),
-                    1 => Ok(nodes.first().unwrap().0.clone()),
+                    0 => nothing.clone(),
+                    1 => nodes.first().unwrap().value.bind(py).clone(),
                     _ => {
-                        let object = &nodes.to_object(py);
-                        Ok(object.bind(py).clone())
+                        let object = nodes.into_py(py).bind(py).clone();
+                        object
                     }
                 }
             } else {
-                let object = &nodes.to_object(py);
-                Ok(object.bind(py).clone())
+                let object = nodes.into_py(py).bind(py).clone();
+                object
             }
         }
-        FilterExpressionResult::Nothing => Ok(nothing.clone()),
-        FilterExpressionResult::Object(obj) => Ok(obj),
+        FilterExpressionResult::Nothing => nothing.clone(),
+        FilterExpressionResult::Object(obj) => obj,
     }
 }
 
@@ -357,7 +347,6 @@ impl fmt::Display for FilterExpression {
                         .join(", ")
                 )
             }
-            CurrentKey { .. } => f.write_str("#"),
         }
     }
 }
@@ -395,7 +384,6 @@ impl FilterExpression {
             Function { .. } => {
                 format!("<jpq.FilterExpression.Function `{}`>", self)
             }
-            CurrentKey { .. } => "<jpq.FilterExpression.Key>".to_string(),
         }
     }
 
@@ -424,32 +412,55 @@ fn logical(
     }
 }
 
-fn compare(
-    left: &FilterExpressionResult,
-    op: &ComparisonOperator,
-    right: &FilterExpressionResult,
-) -> bool {
-    use ComparisonOperator::*;
-    match op {
-        Eq => eq((left, right)),
-        Ne => !eq((left, right)),
-        Lt => lt((left, right)),
-        Gt => lt((right, left)),
-        Ge => lt((right, left)) || eq((left, right)),
-        Le => lt((left, right)) || eq((left, right)),
+fn nodes_or_singular<'py>(
+    rv: FilterExpressionResult<'py>,
+    py: Python<'py>,
+) -> FilterExpressionResult<'py> {
+    match rv {
+        FilterExpressionResult::Nodes(ref nodes) => {
+            if nodes.len() == 1 {
+                FilterExpressionResult::Object(nodes.first().unwrap().value.bind(py).clone())
+            } else {
+                rv
+            }
+        }
+        _ => rv,
     }
 }
 
-fn eq(pair: (&FilterExpressionResult, &FilterExpressionResult)) -> bool {
+fn compare<'py>(
+    left: FilterExpressionResult,
+    op: &ComparisonOperator,
+    right: FilterExpressionResult,
+    py: Python<'py>,
+) -> bool {
+    use ComparisonOperator::*;
+    let left = nodes_or_singular(left, py);
+    let right = nodes_or_singular(right, py);
+    match op {
+        Eq => eq((&left, &right), py),
+        Ne => !eq((&left, &right), py),
+        Lt => lt((&left, &right)),
+        Gt => lt((&right, &left)),
+        Ge => lt((&right, &left)) || eq((&left, &right), py),
+        Le => lt((&left, &right)) || eq((&left, &right), py),
+    }
+}
+
+fn eq<'py>(pair: (&FilterExpressionResult, &FilterExpressionResult), py: Python<'py>) -> bool {
     use FilterExpressionResult::*;
     match pair {
         (Nodes(left), Nodes(right)) => {
-            left.len() == right.len() && left.iter().zip(right).all(|(l, r)| l.0.eq(&r.0).unwrap())
+            left.len() == right.len()
+                && left
+                    .iter()
+                    .zip(right)
+                    .all(|(l, r)| l.value.bind(py).eq(&r.value).unwrap())
         }
         (Nodes(nodes), Nothing) | (Nothing, Nodes(nodes)) => nodes.is_empty(),
         (Nodes(nodes), Object(obj)) | (Object(obj), Nodes(nodes)) => {
             if nodes.len() == 1 {
-                obj.eq(&nodes.first().unwrap().0).unwrap()
+                obj.eq(&nodes.first().unwrap().value).unwrap()
             } else {
                 false
             }
