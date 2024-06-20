@@ -74,10 +74,10 @@ impl Env {
         })
     }
 
-    pub fn find<'py>(
+    pub fn find(
         &self,
         query: &str,
-        value: &Bound<'py, PyAny>,
+        value: &Bound<'_, PyAny>,
     ) -> Result<NodeList, JSONPathError> {
         Ok(self.parser.parse(query)?.resolve(value, self))
     }
@@ -86,7 +86,7 @@ impl Env {
         self.parser.parse(query)
     }
 
-    pub fn query<'py>(&self, query: Query, value: &Bound<'py, PyAny>) -> NodeList {
+    pub fn query(&self, query: Query, value: &Bound<'_, PyAny>) -> NodeList {
         query.resolve(value, self)
     }
 }

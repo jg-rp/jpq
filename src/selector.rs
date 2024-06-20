@@ -29,9 +29,9 @@ pub enum Selector {
 }
 
 impl Selector {
-    pub fn resolve<'py>(
+    pub fn resolve(
         &self,
-        value: &Value<'py>,
+        value: &Value<'_>,
         location: &Location,
         context: &QueryContext,
     ) -> NodeList {
@@ -107,7 +107,7 @@ impl Selector {
 }
 
 fn norm_index(index: i64, length: usize) -> usize {
-    if index < 0 && length >= index.abs() as usize {
+    if index < 0 && length >= index.unsigned_abs() as usize {
         (length as i64 + index) as usize
     } else {
         index as usize

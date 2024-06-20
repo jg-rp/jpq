@@ -25,8 +25,8 @@ pub enum PathElement {
 }
 
 impl Node {
-    pub fn new_array_element<'py>(
-        value: Bound<'py, PyAny>,
+    pub fn new_array_element(
+        value: Bound<'_, PyAny>,
         location: &Location,
         index: usize,
     ) -> Self {
@@ -36,8 +36,8 @@ impl Node {
         }
     }
 
-    pub fn new_object_member<'py>(
-        value: Bound<'py, PyAny>,
+    pub fn new_object_member(
+        value: Bound<'_, PyAny>,
         location: &Location,
         name: String,
     ) -> Self {

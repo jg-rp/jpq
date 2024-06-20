@@ -33,7 +33,7 @@ impl Query {
     }
 
     // Apply this query to Python object `value` using the function register from `env`.
-    pub fn resolve<'py>(&self, value: &Bound<'py, PyAny>, env: &Env) -> NodeList {
+    pub fn resolve(&self, value: &Bound<'_, PyAny>, env: &Env) -> NodeList {
         let root_node = Node {
             value: value.clone().unbind(),
             location: ConsList::new(),

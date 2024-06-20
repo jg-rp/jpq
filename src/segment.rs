@@ -16,7 +16,7 @@ pub enum Segment {
 }
 
 impl Segment {
-    pub fn resolve<'py>(&self, nodes: NodeList, context: &QueryContext) -> NodeList {
+    pub fn resolve(&self, nodes: NodeList, context: &QueryContext) -> NodeList {
         match self {
             Segment::Child { selectors } => nodes
                 .into_iter()
@@ -42,9 +42,9 @@ impl Segment {
         }
     }
 
-    fn visit<'py>(
+    fn visit(
         &self,
-        value: &Value<'py>,
+        value: &Value<'_>,
         location: Location,
         selectors: &Vec<Selector>,
         context: &QueryContext,
@@ -58,9 +58,9 @@ impl Segment {
         nodes
     }
 
-    fn descend<'py>(
+    fn descend(
         &self,
-        value: &Value<'py>,
+        value: &Value<'_>,
         location: &Location,
         selectors: &Vec<Selector>,
         context: &QueryContext,

@@ -213,15 +213,15 @@ impl FilterExpression {
                     .function_register
                     .bind(py)
                     .get_item(name)
-                    .expect(format!("missing function definition for {}", name).as_str())
-                    .expect(format!("missing function definition for {}", name).as_str());
+                    .unwrap_or_else(|_| panic!("missing function definition for {}", name))
+                    .unwrap_or_else(|| panic!("missing function definition for {}", name));
 
                 let sig = context
                     .env
                     .parser
                     .function_signatures
                     .get(name)
-                    .expect(format!("missing function signature for {}", name).as_str());
+                    .unwrap_or_else(|| panic!("missing function signature for {}", name));
 
                 let _args: Vec<Value> = args
                     .iter()
@@ -240,17 +240,12 @@ impl FilterExpression {
 
                 let rv = obj
                     .call1(PyTuple::new_bound(py, _args))
-                    .expect(format!("unexpected error in function extension '{}'", name).as_str());
+                    .unwrap_or_else(|_| panic!("unexpected error in function extension '{}'", name));
 
                 match sig.return_type {
                     ExpressionType::Nodes => Nodes(
-                        rv.extract().expect(
-                            format!(
-                                "expected a NodesType return value from function extension '{}'",
-                                name
-                            )
-                            .as_str(),
-                        ),
+                        rv.extract().unwrap_or_else(|_| panic!("expected a NodesType return value from function extension '{}'",
+                                name)),
                     ),
                     _ => Object(rv),
                 }
@@ -428,11 +423,11 @@ fn nodes_or_singular<'py>(
     }
 }
 
-fn compare<'py>(
+fn compare(
     left: FilterExpressionResult,
     op: &ComparisonOperator,
     right: FilterExpressionResult,
-    py: Python<'py>,
+    py: Python<'_>,
 ) -> bool {
     use ComparisonOperator::*;
     let left = nodes_or_singular(left, py);
@@ -447,7 +442,7 @@ fn compare<'py>(
     }
 }
 
-fn eq<'py>(pair: (&FilterExpressionResult, &FilterExpressionResult), py: Python<'py>) -> bool {
+fn eq(pair: (&FilterExpressionResult, &FilterExpressionResult), py: Python<'_>) -> bool {
     use FilterExpressionResult::*;
     match pair {
         (Nodes(left), Nodes(right)) => {
