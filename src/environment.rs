@@ -74,23 +74,19 @@ impl Env {
         })
     }
 
-    pub fn find<'py>(
+    pub fn find(
         &self,
         query: &str,
-        value: &Bound<'py, PyAny>,
-    ) -> Result<NodeList<'py>, JSONPathError> {
-        self.parser.parse(query)?.resolve(value, self)
+        value: &Bound<'_, PyAny>,
+    ) -> Result<NodeList, JSONPathError> {
+        Ok(self.parser.parse(query)?.resolve(value, self))
     }
 
     pub fn compile(&self, query: &str) -> Result<Query, JSONPathError> {
         self.parser.parse(query)
     }
 
-    pub fn query<'py>(
-        &self,
-        query: Query,
-        value: &Bound<'py, PyAny>,
-    ) -> Result<NodeList<'py>, JSONPathError> {
+    pub fn query(&self, query: Query, value: &Bound<'_, PyAny>) -> NodeList {
         query.resolve(value, self)
     }
 }

@@ -5,7 +5,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
 use crate::filter::{is_truthy, FilterExpression};
-use crate::{FilterContext, JSONPathError, Node, NodeList, QueryContext};
+use crate::node::{Location, Value};
+use crate::{Node, NodeList, QueryContext};
 
 #[pyclass]
 #[derive(Debug, Clone)]
@@ -25,145 +26,91 @@ pub enum Selector {
     Filter {
         expression: Box<FilterExpression>,
     },
-    Key {
-        name: String,
-    },
-    Keys {},
-    KeysFilter {
-        expression: Box<FilterExpression>,
-    },
 }
 
 impl Selector {
-    pub fn resolve<'py>(
+    pub fn resolve(
         &self,
-        node: &Node<'py>,
+        value: &Value<'_>,
+        location: &Location,
         context: &QueryContext,
-    ) -> Result<NodeList<'py>, JSONPathError> {
-        let mut nodes: NodeList = Vec::new();
-        let value = &node.0;
+    ) -> NodeList {
         match self {
             Selector::Name { name, .. } => {
-                if let Ok(val) = value.get_item(name) {
-                    nodes.push((
-                        val,
-                        format!("{}['{}']", node.1, name),
-                        name.into_py(value.py()),
-                    ));
+                if let Ok(v) = value.get_item(name) {
+                    vec![Node::new_object_member(v, location, name.to_owned())]
+                } else {
+                    Vec::new()
                 }
             }
             Selector::Index { index, .. } => {
                 // We don't want to index Python strings or dicts with integer keys
                 if value.is_instance_of::<PyList>() {
-                    if let Ok(val) = value.get_item(index) {
-                        if *index < 0 {
-                            let i = value.len().unwrap() as i64 + index; // TODO: try_from
-                            nodes.push((val, format!("{}[{}]", node.1, i), i.into_py(value.py())));
-                        } else {
-                            nodes.push((
-                                val,
-                                format!("{}[{}]", node.1, index),
-                                index.into_py(value.py()),
-                            ));
-                        }
+                    let norm = norm_index(*index, value.len().unwrap());
+                    if let Ok(v) = value.get_item(norm) {
+                        vec![Node::new_array_element(v, location, norm)]
+                    } else {
+                        Vec::new()
                     }
+                } else {
+                    Vec::new()
                 }
             }
             Selector::Slice {
                 start, stop, step, ..
             } => {
                 if let Ok(list) = value.downcast::<PyList>() {
-                    let py = list.py();
-                    for (i, element) in slice(list, *start, *stop, *step) {
-                        nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(py)))
-                    }
+                    slice(list, *start, *stop, *step)
+                        .into_iter()
+                        .map(|(i, v)| Node::new_array_element(v, location, i as usize))
+                        .collect()
+                } else {
+                    Vec::new()
                 }
             }
             Selector::Wild { .. } => {
                 if let Ok(list) = value.downcast::<PyList>() {
-                    let py = list.py();
-                    for (i, element) in list.iter().enumerate() {
-                        nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(py)));
-                    }
+                    list.iter()
+                        .enumerate()
+                        .map(|(i, v)| Node::new_array_element(v, location, i))
+                        .collect()
                 } else if let Ok(dict) = value.downcast::<PyDict>() {
-                    for (key, val) in dict.iter() {
-                        nodes.push((val, format!("{}['{}']", node.1, key), key.unbind()));
-                    }
+                    dict.iter()
+                        .map(|(k, v)| Node::new_object_member(v, location, k.extract().unwrap()))
+                        .collect()
+                } else {
+                    Vec::new()
                 }
             }
             Selector::Filter { expression, .. } => {
                 if let Ok(list) = value.downcast::<PyList>() {
-                    let py = list.py();
-                    for (i, element) in list.iter().enumerate() {
-                        let py_i = i.to_object(node.0.py());
-                        let filter_context = FilterContext {
-                            env: context.env,
-                            root: context.root.clone(),
-                            current: element.clone(),
-                            current_key: Some(py_i.bind(node.0.py()).clone()),
-                        };
-                        if is_truthy(&expression.evaluate(&filter_context)?) {
-                            nodes.push((element, format!("{}[{}]", node.1, i), i.into_py(py)));
-                        }
-                    }
+                    list.iter()
+                        .enumerate()
+                        .map(|(i, v)| (i, v.clone(), expression.evaluate(&v, context)))
+                        .filter(|(_, _, r)| is_truthy(r))
+                        .map(|(i, v, _)| Node::new_array_element(v.clone(), location, i))
+                        .collect()
                 } else if let Ok(dict) = value.downcast::<PyDict>() {
-                    for (key, val) in dict.iter() {
-                        let filter_context = FilterContext {
-                            env: context.env,
-                            root: context.root.clone(),
-                            current: val.clone(),
-                            current_key: Some(key.clone()),
-                        };
-                        if is_truthy(&expression.evaluate(&filter_context)?) {
-                            nodes.push((val, format!("{}['{}']", node.1, key), key.unbind()));
-                        }
-                    }
-                }
-            }
-            Selector::Key { name, .. } => {
-                // Non-standard
-                if let Ok(_val) = value.get_item(name) {
-                    // TODO: escape `'`
-                    let py_name = name.to_object(node.0.py());
-                    nodes.push((
-                        py_name.bind(node.0.py()).clone(),
-                        format!("{}[~'{}']", node.1, name),
-                        py_name,
-                    ));
-                }
-            }
-            Selector::Keys { .. } => {
-                // Non-standard
-                if let Ok(dict) = value.downcast::<PyDict>() {
-                    for (key, _val) in dict.iter() {
-                        // TODO: escape `'`
-                        nodes.push((key.clone(), format!("{}[~'{}']", node.1, key), key.unbind()));
-                    }
-                }
-            }
-            Selector::KeysFilter { expression, .. } => {
-                // Non-standard
-                if let Ok(dict) = value.downcast::<PyDict>() {
-                    for (key, val) in dict.iter() {
-                        let filter_context = FilterContext {
-                            env: context.env,
-                            root: context.root.clone(),
-                            current: val.clone(),
-                            current_key: Some(key.clone()),
-                        };
-                        if is_truthy(&expression.evaluate(&filter_context)?) {
-                            // TODO: escape `'`
-                            nodes.push((
-                                key.clone(),
-                                format!("{}[~'{}']", node.1, key),
-                                key.unbind(),
-                            ));
-                        }
-                    }
+                    dict.iter()
+                        .map(|(k, v)| (k, v.clone(), expression.evaluate(&v, context)))
+                        .filter(|(_, _, r)| is_truthy(r))
+                        .map(|(k, v, _)| {
+                            Node::new_object_member(v.clone(), location, k.extract().unwrap())
+                        })
+                        .collect()
+                } else {
+                    Vec::new()
                 }
             }
         }
-        Ok(nodes)
+    }
+}
+
+fn norm_index(index: i64, length: usize) -> usize {
+    if index < 0 && length >= index.unsigned_abs() as usize {
+        (length as i64 + index) as usize
+    } else {
+        index as usize
     }
 }
 
@@ -245,9 +192,6 @@ impl Selector {
             Selector::Slice { .. } => format!("<jpq.Selector.Slice `{}`>", self),
             Selector::Wild { .. } => format!("<jpq.Selector.Wild `{}`>", self),
             Selector::Filter { .. } => format!("<jpq.Selector.Filter `{}`>", self),
-            Selector::Key { .. } => format!("<jpq.Selector.Key `{}`>", self),
-            Selector::Keys { .. } => format!("<jpq.Selector.Keys `{}`>", self),
-            Selector::KeysFilter { .. } => format!("<jpq.Selector.KeysFilter `{}`>", self),
         }
     }
 
@@ -280,9 +224,6 @@ impl fmt::Display for Selector {
             }
             Selector::Wild { .. } => f.write_char('*'),
             Selector::Filter { expression, .. } => write!(f, "?{expression}"),
-            Selector::Key { name, .. } => write!(f, "~'{name}'"), // TODO: escape `'`
-            Selector::Keys { .. } => f.write_char('~'),
-            Selector::KeysFilter { expression, .. } => write!(f, "~?{expression}"),
         }
     }
 }
