@@ -130,6 +130,7 @@ impl ComparisonOperator {
     }
 }
 
+#[derive(Debug)]
 pub enum FilterExpressionResult<'py> {
     Object(Bound<'py, PyAny>),
     Nodes(NodeList),
@@ -240,14 +241,24 @@ impl FilterExpression {
 
                 let rv = obj
                     .call1(PyTuple::new_bound(py, _args))
-                    .unwrap_or_else(|_| panic!("unexpected error in function extension '{}'", name));
+                    .unwrap_or_else(|_| {
+                        panic!("unexpected error in function extension '{}'", name)
+                    });
 
                 match sig.return_type {
-                    ExpressionType::Nodes => Nodes(
-                        rv.extract().unwrap_or_else(|_| panic!("expected a NodesType return value from function extension '{}'",
-                                name)),
-                    ),
-                    _ => Object(rv),
+                    ExpressionType::Nodes => Nodes(rv.extract().unwrap_or_else(|_| {
+                        panic!(
+                            "expected a NodesType return value from function extension '{}'",
+                            name
+                        )
+                    })),
+                    _ => {
+                        if rv.eq(context.env.nothing.clone()).unwrap() {
+                            Nothing
+                        } else {
+                            Object(rv)
+                        }
+                    }
                 }
             }
         }
